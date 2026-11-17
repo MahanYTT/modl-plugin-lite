@@ -1,6 +1,6 @@
 # modl-plugin-lite — Ultra-Low Overhead Minecraft Moderation Plugin
 
-A high-efficiency, minimal-footprint fork of the official **[modl.gg Minecraft Plugin](github.com/modl-gg/minecraft)**, engineered to pair with **[modl-go](https://github.com/MahanYTT/modl-go)** (the single-binary Go + SQLite self-hosted backend & panel).
+A high-efficiency, minimal-footprint fork of the official **[modl.gg Minecraft Plugin](https://github.com/modl-gg/minecraft)**, engineered to pair with **[modl-go](https://github.com/MahanYTT/modl-go)** (the single-binary Go + SQLite self-hosted backend & panel).
 
 Supports **Spigot / Paper / Folia**, **Velocity**, **BungeeCord**, and **Fabric** (standalone or proxy+bridge network topologies) with all packet-level replay recording overhead stripped out and hot-path tick/network code optimized for minimal RAM and CPU usage.
 
