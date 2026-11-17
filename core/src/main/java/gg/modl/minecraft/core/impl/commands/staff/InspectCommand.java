@@ -1,0 +1,354 @@
+package gg.modl.minecraft.core.impl.commands.staff;
+
+import gg.modl.minecraft.api.Account;
+import gg.modl.minecraft.api.Note;
+import gg.modl.minecraft.api.http.PanelUnavailableException;
+import gg.modl.minecraft.api.http.request.PlayerLookupRequest;
+import gg.modl.minecraft.api.http.response.LinkedAccountsResponse;
+import gg.modl.minecraft.api.http.response.PlayerLookupResponse;
+import gg.modl.minecraft.api.http.response.PlayerProfileResponse;
+import gg.modl.minecraft.api.http.response.PunishmentDetailResponse;
+import gg.modl.minecraft.core.HttpClientHolder;
+import gg.modl.minecraft.core.Platform;
+import gg.modl.minecraft.core.cache.CachedProfile;
+import gg.modl.minecraft.core.cache.Cache;
+import gg.modl.minecraft.core.command.StaffOnly;
+import gg.modl.minecraft.core.impl.menus.inspect.InspectMenu;
+import gg.modl.minecraft.core.impl.menus.util.InspectContext;
+import gg.modl.minecraft.core.util.ClickableJsonMessage;
+import gg.modl.minecraft.core.PluginServices;
+import gg.modl.minecraft.core.locale.LocaleManager;
+import gg.modl.minecraft.core.util.CommandUtil;
+import gg.modl.minecraft.core.util.Constants;
+import gg.modl.minecraft.core.punishment.PunishmentTypeCacheManager;
+import gg.modl.minecraft.core.util.TimeUtil;
+import lombok.RequiredArgsConstructor;
+import revxrsal.commands.annotation.Command;
+import revxrsal.commands.annotation.Description;
+import revxrsal.commands.annotation.Optional;
+import revxrsal.commands.annotation.Named;
+import revxrsal.commands.command.CommandActor;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import static gg.modl.minecraft.core.util.Java8Collections.mapOf;
+
+@RequiredArgsConstructor
+public class InspectCommand {
+    private static final String STATUS_ACTIVE = "Active", STATUS_PARDONED = "Pardoned", STATUS_INACTIVE = "Inactive",
+            DURATION_PERMANENT = "Permanent", COLOR_YES = "&cYes", COLOR_NO = "&aNo",
+            COLOR_ACTIVE = "&a", COLOR_INACTIVE = "&7";
+    private static final int MAX_NOTES_DISPLAYED = 3, MAX_LINKED_ACCOUNTS_DISPLAYED = 5;
+
+    private final HttpClientHolder httpClientHolder;
+    private final Platform platform;
+    private final Cache cache;
+    private final LocaleManager localeManager;
+    private final String panelUrl;
+    private final PunishmentTypeCacheManager punishmentTypeCache;
+
+    @Command("inspect")
+    @Description("Open the inspect menu for a player, or use -p to print info to chat")
+    @StaffOnly
+    public void inspect(CommandActor actor, @Named("player") String playerQuery, @Optional String flags) {
+        if (flags == null) flags = "";
+
+        if (playerQuery.startsWith("#")) {
+            String punishmentId = playerQuery.substring(1);
+            printPunishmentDetail(actor, punishmentId);
+            return;
+        }
+
+        boolean printMode = flags.equalsIgnoreCase("-p") || flags.equalsIgnoreCase("print");
+
+        if (CommandUtil.rendersAsText(actor, platform, printMode)) {
+            printLookup(actor, playerQuery);
+            return;
+        }
+
+        UUID senderUuid = actor.uniqueId();
+        ProfileMenuOpener.openProfileMenu(actor, httpClientHolder.getClient(), platform, cache, localeManager, playerQuery,
+                (profileResponse, senderName, viewer) -> {
+                    InspectContext context = new InspectContext(
+                        profileResponse.getProfile(),
+                        profileResponse.getPunishmentCount(),
+                        profileResponse.getNoteCount()
+                    );
+                    new InspectMenu(
+                        platform, httpClientHolder.getClient(), senderUuid, senderName,
+                        profileResponse.getProfile(), null, context
+                    ).display(viewer);
+                },
+                this::logInspectFailure);
+    }
+
+    private void printPunishmentDetail(CommandActor actor, String punishmentId) {
+        actor.reply(localeManager.getMessage("player_lookup.looking_up", mapOf("player", "#" + punishmentId)));
+
+        httpClientHolder.getClient().getPunishmentDetail(punishmentId).thenAccept(response -> {
+            if (!response.isSuccess() || response.getPunishment() == null) {
+                actor.reply(localeManager.getMessage("print.punishment_detail.not_found", mapOf("id", punishmentId)));
+                return;
+            }
+
+            PunishmentDetailResponse.PunishmentDetail p = response.getPunishment();
+            String typeName = getPunishmentTypeName(p.getTypeOrdinal());
+            String playerName = p.getPlayerName() != null ? p.getPlayerName() : Constants.UNKNOWN;
+            String issuerName = p.getIssuerName() != null ? p.getIssuerName() : Constants.UNKNOWN;
+            String issued = p.getIssued() != null ? p.getIssued() : Constants.UNKNOWN;
+
+            String status = STATUS_ACTIVE;
+            boolean active = true;
+            Map<String, Object> data = p.getData();
+            if (data != null) {
+                if (data.containsKey("pardoned") && Boolean.TRUE.equals(data.get("pardoned"))) {
+                    status = STATUS_PARDONED;
+                    active = false;
+                } else if (data.containsKey("active") && Boolean.FALSE.equals(data.get("active"))) {
+                    status = STATUS_INACTIVE;
+                    active = false;
+                }
+            }
+
+            String duration = DURATION_PERMANENT;
+            if (data != null && data.containsKey("duration")) {
+                Object dur = data.get("duration");
+                if (dur instanceof Number) {
+                    long millis = ((Number) dur).longValue();
+                    if (millis > 0) duration = TimeUtil.formatTimeMillis(millis);
+                }
+            }
+
+            String reason = "";
+            if (data != null && data.containsKey("reason")) {
+                Object r = data.get("reason");
+                if (r != null) reason = r.toString();
+            }
+
+            int evidenceCount = p.getEvidence() != null ? p.getEvidence().size() : 0;
+            int notesCount = p.getNotes() != null ? p.getNotes().size() : 0;
+            int modsCount = p.getModifications() != null ? p.getModifications().size() : 0;
+
+            actor.reply(localeManager.getMessage("print.punishment_detail.header", mapOf("id", punishmentId)));
+            actor.reply(localeManager.getMessage("print.punishment_detail.type", mapOf("type", typeName)));
+            actor.reply(localeManager.getMessage("print.punishment_detail.player", mapOf("player", playerName)));
+            actor.reply(localeManager.getMessage("print.punishment_detail.issuer", mapOf("issuer", issuerName)));
+            actor.reply(localeManager.getMessage("print.punishment_detail.date", mapOf("date", issued)));
+            actor.reply(localeManager.getMessage("print.punishment_detail.status", mapOf("status", (active ? COLOR_ACTIVE : COLOR_INACTIVE) + status)));
+            actor.reply(localeManager.getMessage("print.punishment_detail.duration", mapOf("duration", duration)));
+            if (!reason.isEmpty()) actor.reply(localeManager.getMessage("print.punishment_detail.reason", mapOf("reason", reason)));
+            actor.reply(localeManager.getMessage("print.punishment_detail.evidence", mapOf("count", String.valueOf(evidenceCount))));
+            actor.reply(localeManager.getMessage("print.punishment_detail.notes", mapOf("count", String.valueOf(notesCount))));
+            actor.reply(localeManager.getMessage("print.punishment_detail.modifications", mapOf("count", String.valueOf(modsCount))));
+            actor.reply(localeManager.getMessage("print.punishment_detail.footer"));
+
+            if (actor.uniqueId() != null) {
+                UUID senderUuid = actor.uniqueId();
+                platform.runOnMainThread(() ->
+                    PluginServices.punishmentActions().sendPunishmentActions(senderUuid, punishmentId));
+            }
+        }).exceptionally(throwable -> {
+            logInspectFailure("#" + punishmentId, throwable);
+            CommandUtil.handleException(actor, throwable, localeManager);
+            return null;
+        });
+    }
+
+    private void logInspectFailure(String playerQuery, Throwable throwable) {
+        Throwable root = unwrapThrowable(throwable);
+        String message = root.getMessage();
+        platform.getLogger().severe("Inspect lookup failed for " + playerQuery + " (" + root.getClass().getSimpleName() + ")" +
+            (message != null && !message.isEmpty() ? ": " + message : ""));
+
+        StringWriter stackTrace = new StringWriter();
+        root.printStackTrace(new PrintWriter(stackTrace));
+        platform.getLogger().severe(stackTrace.toString());
+    }
+
+    private static Throwable unwrapThrowable(Throwable throwable) {
+        Throwable current = throwable;
+        while ((current instanceof CompletionException || current instanceof ExecutionException) && current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current != null ? current : new RuntimeException("Unknown inspect failure");
+    }
+
+    private void printLookup(CommandActor actor, String playerQuery) {
+        actor.reply(localeManager.getMessage("player_lookup.looking_up", mapOf("player", playerQuery)));
+
+        PlayerLookupRequest request = PlayerLookupRequest.builder().query(playerQuery).build();
+
+        httpClientHolder.getClient().lookupPlayer(request).thenAccept(response -> {
+            if (response.isSuccess() && response.getData() != null) {
+                UUID playerUuid = UUID.fromString(response.getData().getMinecraftUuid());
+                resolveOwnNotesThenDisplay(actor, response.getData(), playerUuid, playerQuery);
+            } else actor.reply(localeManager.getMessage("general.player_not_found"));
+        }).exceptionally(throwable -> {
+            CommandUtil.handleException(actor, throwable, localeManager);
+            return null;
+        });
+    }
+
+    private void resolveOwnNotesThenDisplay(CommandActor actor, PlayerLookupResponse.PlayerData data, UUID playerUuid, String playerQuery) {
+        StaffProfileLookup.lookupPlayerProfile(httpClientHolder.getClient(), platform, playerQuery).thenAccept(profileResponse -> {
+            List<Note> ownNotes = (profileResponse != null && profileResponse.getStatus() == 200)
+                    ? profileResponse.getProfile().getNotes() : Collections.emptyList();
+            fetchLinkedAndDisplay(actor, data, playerUuid, ownNotes);
+        }).exceptionally(profileThrowable -> {
+            fetchLinkedAndDisplay(actor, data, playerUuid, Collections.emptyList());
+            return null;
+        });
+    }
+
+    private void fetchLinkedAndDisplay(CommandActor actor, PlayerLookupResponse.PlayerData data, UUID playerUuid, List<Note> targetNotes) {
+        httpClientHolder.getClient().getLinkedAccounts(playerUuid)
+                .thenAccept(linkedResponse -> displayPlayerInfo(actor, data, linkedResponse, targetNotes))
+                .exceptionally(linkedThrowable -> {
+                    if (linkedThrowable.getCause() instanceof PanelUnavailableException) actor.reply(localeManager.getMessage("api_errors.panel_restarting"));
+                    else displayPlayerInfo(actor, data, null, targetNotes);
+                    return null;
+                });
+    }
+
+    private void displayPlayerInfo(CommandActor actor, PlayerLookupResponse.PlayerData data, LinkedAccountsResponse linkedResponse, List<Note> targetNotes) {
+        String playerName = data.getCurrentUsername() != null ? data.getCurrentUsername() : Constants.UNKNOWN;
+
+        replyIdentity(actor, data, playerName);
+        replyPunishmentStatus(actor, data);
+        replyNotesSection(actor, targetNotes);
+        replyPunishmentTotal(actor, data);
+        replyLinkedAccountsSection(actor, linkedResponse);
+        replyTicketTotal(actor, data);
+        replyProfileFooter(actor, data, playerName);
+    }
+
+    private void replyIdentity(CommandActor actor, PlayerLookupResponse.PlayerData data, String playerName) {
+        actor.reply(localeManager.getMessage("print.inspect.header", mapOf("player", playerName)));
+        actor.reply(localeManager.getMessage("print.inspect.uuid", mapOf("player", playerName, "uuid", data.getMinecraftUuid())));
+    }
+
+    private void replyPunishmentStatus(CommandActor actor, PlayerLookupResponse.PlayerData data) {
+        UUID playerUuid = UUID.fromString(data.getMinecraftUuid());
+        CachedProfile targetProfile = cache.getPlayerProfile(playerUuid);
+        boolean isBanned = targetProfile != null && targetProfile.isBanned();
+        boolean isMuted = targetProfile != null && targetProfile.isMuted();
+
+        if (!isBanned || !isMuted) {
+            if (data.getRecentPunishments() != null)
+                for (PlayerLookupResponse.RecentPunishment punishment : data.getRecentPunishments()) {
+                    if (punishment.isActive()) {
+                        String type = punishment.getType();
+                        if (!isBanned && punishmentTypeCache.isBanType(type)) isBanned = true;
+                        if (!isMuted && punishmentTypeCache.isMuteType(type)) isMuted = true;
+                    }
+                }
+        }
+
+        String bannedStatus = isBanned ? COLOR_YES : COLOR_NO;
+        String mutedStatus = isMuted ? COLOR_YES : COLOR_NO;
+        actor.reply(localeManager.getMessage("print.inspect.currently_banned", mapOf("status", bannedStatus)));
+        actor.reply(localeManager.getMessage("print.inspect.currently_muted", mapOf("status", mutedStatus)));
+    }
+
+    private void replyNotesSection(CommandActor actor, List<Note> targetNotes) {
+        actor.reply(localeManager.getMessage("print.inspect.notes_label"));
+        if (targetNotes != null && !targetNotes.isEmpty()) {
+            int noteOrdinal = 1;
+            for (Note note : targetNotes) {
+                if (noteOrdinal > MAX_NOTES_DISPLAYED) break;
+                actor.reply(localeManager.getMessage("print.inspect.note_entry", mapOf(
+                    "ordinal", String.valueOf(noteOrdinal),
+                    "text", note.getText(),
+                    "issuer", note.getIssuerName()
+                )));
+                noteOrdinal++;
+            }
+        } else {
+            actor.reply(localeManager.getMessage("print.inspect.no_notes"));
+        }
+    }
+
+    private void replyPunishmentTotal(CommandActor actor, PlayerLookupResponse.PlayerData data) {
+        int totalPunishments = 0;
+        if (data.getPunishmentStats() != null) totalPunishments = data.getPunishmentStats().getTotalPunishments();
+        actor.reply(localeManager.getMessage("print.inspect.total_punishments", mapOf("count", String.valueOf(totalPunishments))));
+    }
+
+    private void replyLinkedAccountsSection(CommandActor actor, LinkedAccountsResponse linkedResponse) {
+        actor.reply(localeManager.getMessage("print.inspect.linked_accounts_label"));
+        if (linkedResponse != null && !linkedResponse.getLinkedAccounts().isEmpty()) {
+            int accountOrdinal = 1;
+            for (Account account : linkedResponse.getLinkedAccounts()) {
+                if (accountOrdinal > MAX_LINKED_ACCOUNTS_DISPLAYED) break;
+                actor.reply(localeManager.getMessage("print.inspect.linked_account_entry", mapOf(
+                    "ordinal", String.valueOf(accountOrdinal),
+                    "username", linkedAccountName(account),
+                    "status", linkedAccountStatus(account)
+                )));
+                accountOrdinal++;
+            }
+            if (linkedResponse.getLinkedAccounts().size() > MAX_LINKED_ACCOUNTS_DISPLAYED)
+                actor.reply(localeManager.getMessage("print.inspect.linked_account_more", mapOf(
+                    "count", String.valueOf(linkedResponse.getLinkedAccounts().size() - MAX_LINKED_ACCOUNTS_DISPLAYED)
+                )));
+        } else actor.reply(localeManager.getMessage("print.inspect.no_linked_accounts"));
+    }
+
+    private String linkedAccountName(Account account) {
+        return !account.getUsernames().isEmpty()
+                ? account.getUsernames().get(account.getUsernames().size() - 1).getUsername()
+                : Constants.UNKNOWN;
+    }
+
+    private String linkedAccountStatus(Account account) {
+        CachedProfile accountProfile = account.getMinecraftUuid() != null ? cache.getPlayerProfile(account.getMinecraftUuid()) : null;
+        boolean accountBanned = accountProfile != null && accountProfile.isBanned();
+        boolean accountMuted = accountProfile != null && accountProfile.isMuted();
+
+        if (accountBanned && accountMuted) return localeManager.getMessage("player_lookup.status.banned_and_muted");
+        if (accountBanned) return localeManager.getMessage("player_lookup.status.banned");
+        if (accountMuted) return localeManager.getMessage("player_lookup.status.muted");
+        return localeManager.getMessage("player_lookup.status.no_punishments");
+    }
+
+    private void replyTicketTotal(CommandActor actor, PlayerLookupResponse.PlayerData data) {
+        int totalTickets = 0;
+        if (data.getRecentTickets() != null) totalTickets = data.getRecentTickets().size();
+        actor.reply(localeManager.getMessage("print.inspect.total_tickets", mapOf("count", String.valueOf(totalTickets))));
+    }
+
+    private void replyProfileFooter(CommandActor actor, PlayerLookupResponse.PlayerData data, String playerName) {
+        actor.reply(localeManager.getMessage("print.inspect.footer"));
+
+        if (data.getMinecraftUuid() != null) {
+            String profileUrl = panelUrl + "/panel?player=" + data.getMinecraftUuid();
+
+            if (actor.uniqueId() != null) {
+                String profileMessage = ClickableJsonMessage.empty()
+                        .extra(ClickableJsonMessage.text("  ").color("gold"))
+                        .extra(ClickableJsonMessage.text("View Web Profile")
+                                .color("aqua")
+                                .underlined(true)
+                                .openUrl(profileUrl)
+                                .hoverText("Click to view " + playerName + "'s profile"))
+                        .toJson();
+                UUID senderUuid = actor.uniqueId();
+                platform.runOnMainThread(() -> platform.sendJsonMessage(senderUuid, profileMessage));
+            } else {
+                actor.reply(localeManager.getMessage("print.inspect.profile_fallback", mapOf("url", profileUrl)));
+            }
+        }
+    }
+
+    private String getPunishmentTypeName(int typeOrdinal) {
+        return punishmentTypeCache.getNameByOrdinal(typeOrdinal);
+    }
+
+}
+

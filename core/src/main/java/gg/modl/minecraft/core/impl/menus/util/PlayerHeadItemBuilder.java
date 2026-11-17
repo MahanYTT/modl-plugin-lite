@@ -1,0 +1,192 @@
+package gg.modl.minecraft.core.impl.menus.util;
+
+import gg.modl.minecraft.core.PluginServices;
+import dev.simplix.cirrus.item.CirrusItem;
+import dev.simplix.cirrus.item.CirrusItemType;
+import dev.simplix.cirrus.text.CirrusChatElement;
+import gg.modl.minecraft.api.Account;
+import gg.modl.minecraft.api.IPAddress;
+import gg.modl.minecraft.core.Platform;
+import gg.modl.minecraft.core.cache.Cache;
+import gg.modl.minecraft.core.cache.CachedProfile;
+import gg.modl.minecraft.core.locale.LocaleManager;
+import gg.modl.minecraft.core.integration.mojang.MojangProfiles;
+import gg.modl.minecraft.core.integration.mojang.WebPlayer;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Function;
+import static gg.modl.minecraft.core.util.Java8Collections.mapOf;
+
+public final class PlayerHeadItemBuilder {
+    private static final String UNKNOWN = "Unknown";
+    private static final Set<UUID> PENDING_TEXTURE_LOOKUPS = ConcurrentHashMap.newKeySet();
+    private static final ExecutorService TEXTURE_LOOKUP_SCHEDULER = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "modl-head-texture-lookup");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final Function<UUID, CompletableFuture<WebPlayer>> textureLookup;
+
+    public PlayerHeadItemBuilder() {
+        this(uuid -> MojangProfiles.client().get(uuid));
+    }
+
+    public PlayerHeadItemBuilder(Function<UUID, CompletableFuture<WebPlayer>> textureLookup) {
+        this.textureLookup = textureLookup;
+    }
+
+    public CirrusItem create(Platform platform, Account targetAccount, String targetName, UUID targetUuid) {
+        LocaleManager locale = PluginServices.locale();
+        List<String> lore = new ArrayList<>();
+
+        String firstLogin = UNKNOWN;
+        if (!targetAccount.getUsernames().isEmpty()) {
+            Date earliest = targetAccount.getUsernames().stream()
+                    .map(Account.Username::getDate)
+                    .filter(Objects::nonNull)
+                    .min(Date::compareTo)
+                    .orElse(null);
+            if (earliest != null) firstLogin = MenuItems.formatDate(earliest);
+        }
+
+        CachedProfile targetProfile = PluginServices.cache() != null ? PluginServices.cache().getPlayerProfile(targetUuid) : null;
+        boolean isOnline = targetProfile != null;
+        boolean isBanned = targetAccount.getPunishments().stream()
+                .anyMatch(p -> p.isActive() && p.isBanType());
+        boolean isMuted = targetAccount.getPunishments().stream()
+                .anyMatch(p -> p.isActive() && p.isMuteType());
+
+        boolean realIpLogged = !targetAccount.getIpList().isEmpty();
+
+        String lastSeenOrSessionTime = "N/A";
+        if (isOnline) {
+            long sessionMs = targetProfile.getSessionDuration();
+            lastSeenOrSessionTime = MenuItems.formatDuration(sessionMs);
+        } else if (!targetAccount.getUsernames().isEmpty()) {
+            Date latest = targetAccount.getUsernames().stream()
+                    .map(Account.Username::getDate)
+                    .filter(Objects::nonNull)
+                    .max(Date::compareTo)
+                    .orElse(null);
+            if (latest != null) lastSeenOrSessionTime = MenuItems.formatDate(latest);
+        }
+
+        String server = UNKNOWN;
+        if (isOnline) server = platform.getPlayerServer(targetUuid);
+        else {
+            Object lastServer = targetAccount.getData().get("lastServer");
+            if (lastServer instanceof String) server = (String) lastServer;
+        }
+
+        String region = UNKNOWN;
+        String country = UNKNOWN;
+        if (!targetAccount.getIpList().isEmpty()) {
+            IPAddress latestIp = targetAccount.getIpList().get(targetAccount.getIpList().size() - 1);
+            region = displayValue(latestIp.getRegion(), UNKNOWN);
+            country = displayValue(latestIp.getCountry(), UNKNOWN);
+        }
+
+        String playtime = "N/A";
+        Object playtimeObj = targetAccount.getData().get("totalPlaytimeSeconds");
+        long totalSeconds = 0;
+        if (playtimeObj instanceof Number) totalSeconds = ((Number) playtimeObj).longValue();
+        if (isOnline) {
+            totalSeconds += targetProfile.getSessionDuration() / 1000;
+        }
+        if (totalSeconds > 0) {
+            long hours = totalSeconds / 3600;
+            long minutes = (totalSeconds % 3600) / 60;
+            playtime = hours > 0 ? hours + "h " + minutes + "m" : minutes + "m";
+        }
+
+        Map<String, String> vars = new HashMap<>();
+        vars.put("player_name", targetName);
+        vars.put("uuid", targetUuid.toString());
+        vars.put("first_login", firstLogin);
+        vars.put("is_online", isOnline ? "&aYes" : "&cNo");
+        vars.put("last_seen_or_session_time", lastSeenOrSessionTime);
+        vars.put("playtime", playtime);
+        vars.put("real_ip_logged", realIpLogged ? "&aYes" : "&cNo");
+        vars.put("is_banned", isBanned ? "&cYes" : "&aNo");
+        vars.put("is_muted", isMuted ? "&cYes" : "&aNo");
+        vars.put("server", server);
+        vars.put("region", region);
+        vars.put("country", country);
+
+        List<String> loreLinesRaw = locale.getMessageList("menus.player_head.lore");
+        lore.addAll(renderLoreLines(loreLinesRaw, vars));
+
+        String title = locale.getMessage("menus.player_head.title", mapOf("player_name", targetName));
+        title = MenuItems.translateColorCodes(title);
+
+        CirrusItem headItem = CirrusItem.of(
+                CirrusItemType.PLAYER_HEAD,
+                CirrusChatElement.ofLegacyText(title),
+                MenuItems.lore(lore)
+        );
+
+        if (PluginServices.cache() != null) {
+            Cache cache = PluginServices.cache();
+            String cachedTexture = cache.getSkinTexture(targetUuid);
+            if (cachedTexture == null) {
+                requestTextureLookup(cache, targetUuid);
+            }
+            if (cachedTexture != null) headItem = headItem.texture(cachedTexture);
+        }
+
+        return headItem;
+    }
+
+    private void requestTextureLookup(Cache cache, UUID targetUuid) {
+        if (!PENDING_TEXTURE_LOOKUPS.add(targetUuid)) return;
+        try {
+            CompletableFuture.supplyAsync(() -> textureLookup.apply(targetUuid), TEXTURE_LOOKUP_SCHEDULER)
+                    .thenCompose(textureFuture -> textureFuture != null
+                            ? textureFuture
+                            : CompletableFuture.completedFuture(null))
+                    .whenComplete((webPlayer, throwable) -> {
+                        try {
+                            if (throwable == null && webPlayer != null && webPlayer.isValid() && webPlayer.getTextureValue() != null) {
+                                cache.cacheSkinTexture(targetUuid, webPlayer.getTextureValue());
+                            }
+                        } finally {
+                            PENDING_TEXTURE_LOOKUPS.remove(targetUuid);
+                        }
+                    }
+            );
+        } catch (Exception e) {
+            PENDING_TEXTURE_LOOKUPS.remove(targetUuid);
+        }
+    }
+
+    public static void shutdown() {
+        if (!TEXTURE_LOOKUP_SCHEDULER.isShutdown()) TEXTURE_LOOKUP_SCHEDULER.shutdownNow();
+    }
+
+    private static String displayValue(String value, String fallback) {
+        return value != null && !value.trim().isEmpty() ? value : fallback;
+    }
+
+    static List<String> renderLoreLines(List<String> loreLinesRaw, Map<String, String> vars) {
+        List<String> lore = new ArrayList<>();
+        for (String line : loreLinesRaw) {
+            String processed = line;
+            for (Map.Entry<String, String> entry : vars.entrySet()) {
+                processed = processed.replace("{" + entry.getKey() + "}", displayValue(entry.getValue(), UNKNOWN));
+            }
+            lore.add(processed);
+        }
+        return lore;
+    }
+}

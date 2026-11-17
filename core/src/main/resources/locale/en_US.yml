@@ -1,0 +1,961 @@
+# modl.gg Minecraft Plugin - English Locale
+# Color codes: Use & for color codes (e.g., &c for red, &a for green)
+# Placeholders: {player}, {reason}, {ticketId}, {url}, {title}
+
+# General Messages
+messages:
+  cannot_report_self: "&cYou cannot report yourself!"
+  player_not_online: "&cThat player is not online."
+  submitting: "&eSubmitting {type}..."
+  creating: "&eCreating {type}..."
+  success: "&a{type} submitted successfully!"
+  created: "&a{type} created successfully!"
+  ticket_id: "&7Ticket ID: &f{ticketId}"
+  view_ticket: "&7View your ticket: &b{url}"
+  complete_form: "&7Complete your {type}: &b{url}"
+  evidence_note: "&7You can add additional evidence to your ticket if needed."
+  form_title_note: "&7You can change the title '&f{title}&7' in the form before submitting."
+  failed_submit: "&cFailed to submit {type}: {error}"
+  failed_create: "&cFailed to create {type}: {error}"
+  try_again: "&cPlease try again later or contact staff directly."
+  unknown_error: "Unknown error"
+  no_details: "No additional details provided"
+  no_chat_logs_available: "&cNo recent chat messages found for {player}. Cannot create chat report without chat logs."
+  view_ticket_label: "View your ticket"
+  complete_form_label: "Complete your {type}"
+  click_to_view: "[Click to view]"
+  click_to_view_hover: "Click to view ticket {ticketId}"
+  console_ticket_url: "&6{message}: &b{url}"
+  claiming_ticket: "&eLinking ticket &f{ticketId}&e to your account..."
+  ticket_claimed_success: "&aTicket &f{ticketId}&a successfully linked to your account!"
+  ticket_claim_failed: "&cFailed to link ticket: {error}"
+  ticket_cooldown: "&cYou must wait {seconds}s before opening another ticket of this type."
+  report_gui_title: "&fReport {player}"
+  report_skull_chat_log:
+    - "&bReport {player}"
+    - "&7Attach chat logs?"
+  report_skull_details:
+    - "&bReport {player}"
+    - "&7Add more details?"
+  report_skull_confirm:
+    - "&bReport {player}"
+    - "&7Confirm report?"
+  report_attach_chat: "&aAttach Chat Log"
+  report_attach_chat_lore:
+    - "&7Include the target's recent"
+    - "&7chat messages as evidence"
+  report_skip_chat: "&cSkip Chat Log"
+  report_skip_chat_lore:
+    - "&7Do not include chat messages"
+  report_add_details: "&aAdd Details"
+  report_add_details_lore:
+    - "&7Add additional details"
+    - "&7to explain your report"
+  report_skip_details: "&cSkip Details"
+  report_skip_details_lore:
+    - "&7Skip additional details."
+  report_confirm: "&aConfirm Report"
+  report_confirm_lore:
+    - "&7Submit this report"
+  report_cancel: "&cCancel Report"
+  report_cancel_lore:
+    - "&7Cancel without submitting"
+  report_details_prompt: "Enter additional details for your report against {player}:"
+  report_submitted: "&aYour report has been submitted successfully!"
+
+# Punishment System Messages
+# Available variables: {player}, {target}, {reason}, {duration}, {type}, {id}, {issuer}, {punishment_type}, {expiration}, {server}
+# General punishment messages
+general:
+  # Permission messages
+  players_only: "&cThis command can only be used by players."
+  no_permission: "&cYou don't have permission to use this command."
+  no_permission_punishment: "&cYou don't have permission to apply '{type}' punishments."
+  no_permission_reload: "&cYou don't have permission to reload punishment data."
+  invalid_syntax: "&cInvalid command syntax. Please check your usage."
+  gui_requires_player: "&cThis command opens a GUI and can only be executed by a player. Use &f-p &cfor text output."
+  gui_unavailable: "&cGUI menus are not available on this proxy."
+  
+  # Error messages
+  unknown: "Unknown"
+  staff: "Staff"
+  player_not_found: "&cPlayer not found."
+  punishment_error: "&cError creating punishment: {error}"
+  punishment_types_not_loaded: "&cPunishment types not loaded. Try &f/modl reload&c or contact an administrator."
+  invalid_punishment_type: "&cInvalid punishment type. Available types: {types}"
+  invalid_duration: "&cInvalid duration format. Examples: 1d, 2h, 30m, 1w"
+  cannot_punish_self: "&cYou cannot punish yourself."
+  target_immune: "&cYou cannot punish {target} as they have immunity."
+  
+  # Success messages
+  punishment_issued: "&aSuccessfully issued {type} for &f{target}&a."
+  punishment_issued_duration: "&aSuccessfully issued {type} for &f{target}&a ({duration})."
+  
+  # Reload messages
+  reloading: "&eReloading..."
+  reload_success: "&aReload complete."
+  reload_error: "&cError reloading: {error}"
+
+# Punishment type validation messages
+validation:
+  single_severity_error: "&cCannot set severity on single-severity punishment type '{type}'. This punishment type has only one severity level."
+  permanent_skin_change_error: "&cCannot set severity on permanent until skin change punishment type '{type}'."
+  permanent_username_change_error: "&cCannot set severity on permanent until username change punishment type '{type}'."
+  alt_blocking_not_supported: "&cAlt-blocking flag is not supported for punishment type '{type}'."
+  stat_wiping_not_supported: "&cStat-wiping flag is not supported for punishment type '{type}'."
+
+# Punishment placeholder words
+# These are substituted into punishment messages as {tense}, {tense2}, and {temp}
+punishment_words:
+  # {tense} - used in player-facing messages (e.g., "You {tense} banned")
+  tense_default: "have been"
+  tense_active: "are"
+  # {tense2} - used in player-facing messages (e.g., "Your account {tense2} restricted")
+  tense2_default: "has been"
+  tense2_active: "is"
+  # {temp} - used in player-facing messages (e.g., "You have been {temp} banned")
+  temporarily: "temporarily"
+  permanently: "permanently"
+  # {will_expire} - appended to timed ban/mute notifications; {type} is ban/mute/punishment, {duration} is the remaining time
+  will_expire: "\n&7This {type} will expire in &f{duration}&7."
+  duration_formatted: "\n&7This {type} will expire in {duration}"
+  mute_duration_formatted: " for {duration}"
+  # {for_duration} - appended to timed mute notifications; the value carries its own leading space
+  for_duration: " for {duration}"
+  # Localized words injected as {type} into will_expire/duration_formatted
+  type_ban: "ban"
+  type_mute: "mute"
+  type_punishment: "punishment"
+  # Shown in the {duration} slot for permanent punishments; config.yml locale_config.duration_format.permanent overrides it when set
+  duration_permanent: "permanent"
+
+# Punishment Type Specific Messages
+# Format: punishment_types.ordinal_<ordinal_number>
+# Manual punishment types (ordinals 0-5):
+#   0: Kick, 1: Manual Mute, 2: Manual Ban, 3: Security Ban, 4: Linked Ban, 5: Blacklist
+# Dynamic punishment types start at ordinal 6+
+# 
+# Structure:
+#   public_notification: Single message shown to all players
+#   player_notification: List of strings shown to the punished player (joined by \n)
+#   Available placeholders:
+#     {target} - The player's name (usually "You" for player notifications)
+#     {reason} - The punishment reason
+#     {duration} - Duration formatted (e.g., "7d 3h" or "permanent")
+#     {description} - Same as reason
+#     {appeal_url} - Full appeal URL (api.url + /appeal)
+#     {id} - The punishment ID
+#     {temp} - "temporarily" or "permanently"
+#     {issued} - Issue date in MM/DD/YY HH:MM format
+#     {player_description} - Player-facing description from punishment type config
+#     {will_expire} - Empty if permanent, or "\nThis ban/mute will expire in {duration}" if timed
+#     {issuer} - Staff name who issued the punishment
+#     {tense} - "have been" or "are" depending on context
+#     {tense2} - "has been" or "is" depending on context
+
+punishments:
+  public_notification:
+    ban_default: "&c{target} has been banned."
+    mute_default: "&c{target} has been muted."
+    kick_default: "&c{target} has been kicked."
+    default: "&c{target} has been punished."
+  mute_fallback: "&cYou are muted!"
+  player_notification:
+    ban_default: "&cYou {tense} banned (#{id})."
+    mute_default: "&cYou {tense} muted (#{id})."
+    kick_default: "&cYou have been kicked (#{id})."
+    default: "&cYou {tense} punished (#{id})."
+
+punishment_types:
+  ordinal_0: # Kick
+    public_notification: "&c{target} has been kicked."
+    player_notification:
+      - "&c&lYou were kicked from the server."
+      - "&f{reason} &7(#{id})"
+
+  ordinal_1: # Manual Mute
+    public_notification: "&c{target} has been muted."
+    player_notification:
+      - ""
+      - "&cYou {tense} {temp} muted{for_duration}"
+      - "&7{issued} | #{id} | {appeal_url}"
+      - "&f{reason}"
+      - ""
+
+  ordinal_2: # Manual Ban
+    public_notification: "&c{target} has been banned."
+    player_notification:
+      - "&c&lYou {tense} {temp} banned for:"
+      - ""
+      - "&f{reason}"
+      - "&7{will_expire}"
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}."
+
+  # Manual punishment types
+  ordinal_3:  # Security Ban
+    public_notification: "&c{target} has been banned."
+    player_notification:
+      - "&c&lYour account {tense2} restricted due to security concerns."
+      - "&fSuspicious activity has been detected on your account. Please secure your account and open an appeal at {appeal_url} using ID #{id}."
+      
+  ordinal_4:  # Linked Ban
+    public_notification: "&c{target} has been banned."
+    player_notification:
+      - "&c&lYour account {tense2} linked to a banned account."
+      - ""
+      - "&fEvading bans through the use of alternate accounts or sharing your account is strictly prohibited."
+      - ""
+      - "&7This ban will be automatically lifted upon the linked ban lapsing."
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}"
+      
+  ordinal_5:  # Blacklist
+    public_notification: "&c{target} has been blacklisted."
+    player_notification:
+      - "&cYou {tense} blacklisted"
+      - "&7ID: #{id}"
+
+  ordinal_6: # Chat abuse
+    public_notification: "&c{target} has been muted for chat abuse."
+    player_notification:
+      - ""
+      - "&cYou {tense} {temp} muted{for_duration}"
+      - "&7{issued} | #{id} | {appeal_url}"
+      - "&f{player_description}"
+      - ""
+  ordinal_7: # anti social
+    public_notification: "&c{target} has been muted for anti social behavior."
+    player_notification:
+      - ""
+      - "&cYou {tense} {temp} muted{for_duration}"
+      - "&7{issued} | #{id} | {appeal_url}"
+      - "&f{player_description}"
+      - ""
+
+  ordinal_8: # targeting
+    public_notification: "&c{target} has been banned for targeting."
+    player_notification:
+      - "&c&lYou {tense} {temp} banned for:"
+      - ""
+      - "&f{player_description}"
+      - "&7{will_expire}"
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}."
+
+  ordinal_9: # bad content
+    public_notification: "&c{target} has been banned for inappropriate content."
+    player_notification:
+      - "&c&lYou {tense} {temp} banned for:"
+      - ""
+      - "&f{player_description}"
+      - "&7{will_expire}"
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}."
+
+  ordinal_10: # Bad username
+    public_notification: "&c{target} has been banned."
+    player_notification:
+      - "&c&lYou {tense} banned due to your Minecraft username."
+      - ""
+      - "&f{reason}"
+      - ""
+      - "&7This ban will be automatically lifted when you change your username."
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}"
+
+  ordinal_11: # Bad skin
+    public_notification: "&c{target} has been banned."
+    player_notification:
+      - "&c&lYou {tense} banned due to your Minecraft skin."
+      - ""
+      - "&f{reason}"
+      - ""
+      - "&7This ban will be automatically lifted when you change your skin."
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}"
+
+  ordinal_12: # team abuse
+    public_notification: "&c{target} has been banned for team abuse."
+    player_notification:
+      - "&c&lYou {tense} {temp} banned for:"
+      - ""
+      - "&f{player_description}"
+      - "&7{will_expire}"
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}."
+
+  ordinal_13: # game abuse
+    public_notification: "&c{target} has been banned for game abuse."
+    player_notification:
+      - "&c&lYou {tense} {temp} banned for:"
+      - ""
+      - "&f{player_description}"
+      - "&7{will_expire}"
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}."
+
+  ordinal_14: # cheating
+    public_notification: "&c{target} has been banned for cheating."
+    player_notification:
+      - "&c&lYou {tense} {temp} banned for:"
+      - ""
+      - "&f{player_description}"
+      - "&7{will_expire}"
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}."
+
+  ordinal_15: # game trading
+    public_notification: "&c{target} has been banned for game trading."
+    player_notification:
+      - "&c&lYou {tense} {temp} banned for:"
+      - ""
+      - "&f{player_description}"
+      - "&7{will_expire}"
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}."
+
+  ordinal_16: # account abuse
+    public_notification: "&c{target} has been banned for account abuse."
+    player_notification:
+      - "&c&lYou {tense} {temp} banned for:"
+      - ""
+      - "&f{player_description}"
+      - "&7{will_expire}"
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}."
+
+  ordinal_17: # systems abuse
+    public_notification: "&c{target} has been banned for system abuse."
+    player_notification:
+      - "&c&lYou {tense} {temp} banned for:"
+      - ""
+      - "&f{player_description}"
+      - "&7{will_expire}"
+      - "&7Is this an error? Appeal at {appeal_url} using ID #{id}."
+
+# Notifications
+notification:
+  ticket_reply: "&6[Ticket] &f{message}"
+  ticket_reply_with_link: "&6[Ticket] &f{message} &b[Click to view]"
+  ticket_click_action: "&7Click to view ticket {ticketId}"
+
+# IAmMuted Command Messages
+iammuted:
+  only_players: "&cThis command can only be used by players."
+  not_muted: "&cYou can only use this command while you are muted."
+  player_not_online: "&cThat player is not online."
+  cannot_message_self: "&cYou cannot send this message to yourself."
+  cooldown_message: "&cYou must wait {minutes} minutes and {seconds} seconds before using this command again."
+  notification_to_target: "&6[Muted Player] &f{sender} &7is currently muted and cannot respond to chat."
+  success_message: "&aYour muted status has been communicated to &f{target}&a."
+
+# Standing Command Messages
+standing:
+  loading: "&7Loading your standing..."
+  error: "&cFailed to load your standing. Please try again later."
+  cooldown: "&cPlease wait {seconds}s before using this command again."
+
+# Player Lookup Messages
+player_lookup:
+  looking_up: "&7Looking up player &e{player}&7..."
+  error: "&cError looking up player: {error}"
+  uuid: "&7UUID: &f{uuid}"
+  currently_banned: "&7Currently Banned: {status}"
+  currently_muted: "&7Currently Muted: {status}"
+  staff_notes_label: "&7Staff Notes:"
+  staff_note_format: "  &8• &f{text} &7- {issuer}"
+  no_staff_notes: "  &8No staff notes"
+  total_punishments: "&7Total Punishments: &f{count}"
+  linked_accounts_label: "&7Linked Accounts:"
+  linked_account_format: "  &8• &f{username}{status}"
+  linked_account_more: "  &8... and {count} more"
+  no_linked_accounts: "  &8No linked accounts"
+  total_tickets: "&7Total Tickets: &f{count}"
+  profile_fallback: "&6Profile: &b{url}"
+
+  # Status messages for linked accounts
+  status:
+    banned_and_muted: " &c(currently banned & muted)"
+    banned: " &c(currently banned)"
+    muted: " &e(currently muted)"
+    no_punishments: " &7(no active punishments)"
+
+# Print Mode Messages (for -p flag on commands)
+print:
+  # /inspect <player> -p
+  inspect:
+    header: ""
+    uuid: "&f{player}'s Info &7({uuid})"
+    currently_banned: "&eBanned: {status}"
+    currently_muted: "&eMuted: {status}"
+    notes_label: "&eStaff Notes:"
+    note_entry: "&6{ordinal}. &f{text} &eby {issuer}"
+    no_notes: "&7No staff notes"
+    total_punishments: "&eTotal Punishments: &f{count}"
+    linked_accounts_label: "&eLinked Accounts:"
+    linked_account_entry: "&6{ordinal}. &e{username} ({status}&e)"
+    linked_account_more: "&e... and {count} more"
+    no_linked_accounts: "&7No linked accounts"
+    total_tickets: "&eTotal Tickets: &f{count}"
+    profile_fallback: "&eProfile: &b{url}"
+    footer: ""
+
+  # /inspect #<punishmentId>
+  punishment_detail:
+    not_found: "&cPunishment #{id} not found."
+    header: " "
+    type: "&eType: &f{type}"
+    player: "&ePlayer: &f{player}"
+    issuer: "&eIssued by: &f{issuer}"
+    date: "&eDate: &f{date}"
+    status: "&eStatus: {status}"
+    duration: "&eDuration: &f{duration}"
+    reason: "&eReason: &f{reason}"
+    evidence: "&eEvidence: &f{count} file(s)"
+    notes: "&eNotes: &f{count}"
+    modifications: "&eModifications: &f{count}"
+    footer: " "
+
+  # /history <player> -p
+  history:
+    header: ""
+    entry_kick: "&6{ordinal}. &7#{id} &e{date} &f{type} &eby {issuer} for &f{reason}"
+    entry_active: "&6{ordinal}. &c#{id} &e{date} &f{type} ({duration}) &eby {issuer} for &f{reason} &7(expires in {expiry})"
+    entry_permanent: "&6{ordinal}. &c#{id} &e{date} &f{type} (permanent) &eby {issuer} for &f{reason}"
+    entry_unstarted: "&6{ordinal}. &c#{id} &e{date} &f{type} ({duration}) &eby {issuer} for &f{reason} &7(not started yet)"
+    entry_expired: "&6{ordinal}. &7#{id} &e{date} &f{type} ({duration}) &eby {issuer} for &f{reason} &7(expired {expired_ago} ago)"
+    entry_pardoned: "&6{ordinal}. &b#{id} &e{date} &f{type} ({duration}) &eby {issuer} for &f{reason} &7(pardoned {pardoned_ago} ago)"
+    total: "&ePage {page}/{total_pages} ({count} total)"
+    empty: "&7Player has never been punished."
+    footer: ""
+
+  # /notes <player> -p
+  notes:
+    header: ""
+    entry: "&6{ordinal}. &e{date} {author}: &f{content}"
+    total: "&ePage {page}/{total_pages} ({count} total)"
+    empty: "&7No staff notes found."
+    footer: ""
+
+  # /alts <player> -p
+  alts:
+    header: ""
+    entry: "&6{ordinal}. {color}{username} &e({status}&e)"
+    status_banned: "&cBanned"
+    status_muted: "&eMuted"
+    status_banned_and_muted: "&cBanned & Muted"
+    status_clean: "&aClean"
+    total: "&ePage {page}/{total_pages} ({count} total)"
+    empty: "&7No linked accounts found."
+    footer: ""
+
+  # /reports <player> -p
+  reports:
+    header: ""
+    entry: "&6{ordinal}. &e#{id} {date} ({status}&e) &f{type} report &eby {reporter}"
+    entry_content: " &f{content}"
+    total: "&ePage {page}/{total_pages} ({count} total)"
+    empty: "&7No reports found."
+    footer: ""
+
+  # /stafflist -p
+  staff_list:
+    header: ""
+    entry: "&6 - &e{player} ({in-game-name}) &7[{role}] &eon &f{server}{v}"
+    vanish: " &7[V]"
+    empty: "&7No staff members online."
+    total: "&ePage {page}/{total_pages} ({count} total)"
+
+# Punishment Command Messages
+punishment_commands:
+  invalid_severity: "&cInvalid severity. Valid severities: lenient, regular, severe"
+  warning_message: "&c{username} has been {punishment_type}."
+
+# API Error Handling
+api_errors:
+  panel_restarting: "&cThe panel is currently restarting. Please try that again in 10 seconds."
+  panel_unavailable: "&cThe panel is temporarily unavailable. Please try again shortly."
+  connection_failed: "&cConnection to panel failed. Please try again in a moment."
+  ban_check_failed: "&cUnable to verify ban status. Login temporarily restricted for safety."
+
+# Pardon Command Messages
+pardon:
+  processing_id: "&7Processing pardon for punishment ID: &e{id}&7..."
+  processing_player: "&7Processing pardon for player: &e{player}&7..."
+  success_id: "&aSuccessfully pardoned punishment &e#{id}&a."
+  success_player: "&aSuccessfully pardoned {player}'s {count} {type}(s)."
+  already_pardoned_id: "&7Punishment &e#{id}&7 is already inactive or has been pardoned."
+  no_active_punishment: "&7{player} does not have an active {type} to pardon."
+  error: "&cFailed to pardon: {error}"
+  error_player: "&cFailed to pardon {player}'s {type}: {error}"
+  error_wrong_type_ban: "&cPunishment &e#{id}&c is not a ban. Use &e/pardon {id}&c to pardon any punishment type."
+  error_wrong_type_mute: "&cPunishment &e#{id}&c is not a mute. Use &e/pardon {id}&c to pardon any punishment type."
+  staff_notification_id: "&7&o[{issuer}: pardoned punishment #{id}&7&o]"
+  staff_notification_player: "&7&o[{issuer}: pardoned {player}'s {type}&7&o]"
+
+# Warning Command Messages
+warn:
+  player_message: "&c&lYou have received a warning from {issuer}.\n&fReason: &7{reason}\n&7Please review the server rules and adjust your behavior accordingly."
+  success: "&aSuccessfully warned &f{target}&a for: &7{reason}"
+  staff_notification: "&7&o[{issuer}: warned {target} for {reason}&7&o]"
+  error: "&cFailed to create warning: {error}"
+
+# Menu Item Localization
+# These define titles and lore for items in inspect menus
+# Available placeholders vary by item type and are documented below
+menus:
+  # Player head in inspect menus
+  player_head:
+    title: "&6{player_name}'s Information"
+    lore:
+      - "&8{uuid}"
+      - "&f "
+      - "&7First Login: &f{first_login}"
+      - "&7Online: {is_online} ({last_seen_or_session_time} on {server})"
+      - "&7Playtime: &f{playtime}"
+      - "&7Real IP Logged: &f{real_ip_logged}"
+      - "&7Region: &f{region} (Country: {country})"
+      - "&7Banned: &f{is_banned}"
+      - "&7Muted: &f{is_muted}"
+      - ""
+      - "&eLeft-click to target {player_name}"
+
+  # Punishment history items
+  history_item:
+    title_active: "&f&l{punishment_type} &f({initial_duration_if_not_kick}{space_ban_mute_or_kick})"
+    title_inactive: "&m&f&l{punishment_type} &f({initial_duration_if_not_kick}{space_ban_mute_or_kick})"
+    lore:
+      - "&7{status_line}"
+      - "&f "
+      - "{notes}"
+      - "&f "
+      - "&7Server: &f{issued_server}"
+      - "&7ID: &c{punishment_id}"
+      - "&bClick to modify this punishment."
+    status_active: "&7Expires in {expiry}."
+    status_inactive: "&7Expired {expired} ago."
+    status_pardoned: "&7Pardoned {pardoned} ago."
+    status_permanent: "&7&7This permanent will never expire."
+    status_unstarted: "&7Punishment not yet started."
+    note_format: "&e{note_date} {note_issuer}&f: {note}"
+
+  # Recent punishments items (includes target player info)
+  recent_item:
+    title_active: "&f&l{punishment_type} &f({initial_duration_if_not_kick}{space_ban_mute_or_kick})"
+    title_inactive: "&m&f&l{punishment_type} &f({initial_duration_if_not_kick}{space_ban_mute_or_kick})"
+    lore:
+      - "&7Player: &f{player}"
+      - "&7{status_line}"
+      - "&f "
+      - "{notes}"
+      - "&f "
+      - "&7Server: &f{issued_server}"
+      - "&7ID: &c{punishment_id}"
+      - "&bClick to modify this punishment."
+
+  # Note items
+  note_item:
+    title: "&e{date} {author}"
+    lore:
+      - "&f{content}"
+      - "&f "
+      - "&eClick to see note in chat"
+
+  # Report items
+  report_item:
+    title: "&e{date} {id} ({status}&e)"
+    lore:
+      - "&7Reported by &a{reporter} &7({type})"
+      - "&f "
+      - "{content}"
+      - "&f "
+      - "&cLeft-click to inspect player"
+      - "&aRight-click to dismiss report"
+
+  # Alt account items
+  alt_item:
+    title: "{color}{player_name}"
+    lore:
+      - "&8{uuid}"
+      - "&f "
+      - "&7Online: {is_online} ({last_seen_or_session_time} on {server})"
+      - "&7Real IP logged: {real_ip}"
+      - "&7First Login: &f{first_login}"
+      - "&7{punishments}"
+      - "&f "
+      - "&eClick to inspect {player_name}"
+    punishment_line_active_true:
+      - "&7Active Punishments ({active_count}): &f"
+      - "{active_punishment_list}"
+    punishment_line_active_false:
+      - "&7Active Punishments: &f0"
+      - "&7Inactive Punishments: &f{inactive_count}"
+    active_punishment_format: "&7- &e#{punishment_id} {punishment_date}: {punishment_type} ({punishment_remaining})"
+
+
+  # Empty placeholders for lists
+  empty:
+    history: "No punishment history"
+    notes: "No staff notes"
+    reports: "No reports filed"
+    alts: "No linked accounts"
+    tickets: "No tickets"
+    staff_reports: "No reports"
+
+  # Staff menu - Tickets
+  ticket_item:
+    title: "&6Ticket #{id}"
+    lore:
+      - "&7Player: &f{player}"
+      - "&7Title: &f{title}"
+      - "&7Created: &f{date}"
+      - "&7Status: {status}"
+      - "&f "
+      - "&eClick to open in panel"
+
+  # Staff menu - Reports
+  staff_report_item:
+    title: "&e{date} {id} ({status}&e)"
+    lore:
+      - "&c{reported}&7 reported by &a{reporter} &7({type})"
+      - "&f "
+      - "{content}"
+      - "&f "
+      - "&cLeft-click to inspect player"
+      - "&aRight-click to dismiss report"
+  linked_ticket_item:
+    title: "&e{date} {id} ({status}&e)"
+    lore:
+      - "&7{title}"
+      - "&f "
+      - "{content}"
+  link_report_item_unselected:
+    title: "&e{date} {id}"
+    lore:
+      - "&7Reported by &a{reporter} &7({type})"
+      - "&f "
+      - "{content}"
+      - "&f "
+      - "&eClick to select"
+  link_report_item_selected:
+    title: "&a{date} {id}"
+    lore:
+      - "&7Reported by &a{reporter} &7({type})"
+      - "&f "
+      - "{content}"
+      - "&f "
+      - "&eClick to deselect"
+
+  # Staff Members Menu (lore template for each staff entry)
+  # Placeholders: {display_name}, {online_color}, {role}, {minecraft_username},
+  #   {online_status}, {session_duration}, {last_seen}, {playtime}, {punishments_count}
+  staff_members:
+    title: "&e{panel_name}"
+    lore:
+      - "&7Role: &f{role}"
+      - "&7Minecraft: &f{minecraft_username}"
+      - ""
+      - "&7Online: {is_online} ({last_seen_or_session_time} on {server})"
+      - "&7Playtime: &f{playtime}"
+      - "&7Punishments Issued: &f{punishments_count}"
+
+  notes:
+    created: "&aNote created successfully!"
+    create_failed: "&cFailed to create note."
+    cancelled: "&7Note creation cancelled."
+  modify_punishment:
+    no_permission_tickets: "&cYou don't have permission to modify linked tickets."
+    no_changes: "&7No changes to linked tickets."
+    tickets_updated: "&aLinked tickets updated successfully!"
+    tickets_update_failed: "&cFailed to update linked tickets."
+
+  # Online Players Menu (lore template for each player entry)
+  # Placeholders: {player_name}, {session_duration}, {total_playtime}, {punishments}, {report_count}
+  online_players:
+    title: "&6{player_name}"
+    lore:
+      - "&7Session: &f{session_duration}"
+      - "&7Total Playtime: &f{total_playtime}"
+      - "&7Punishments: &f{punishments}"
+      - ""
+      - "&7Reports ({report_count}):"
+      - "{report-list}"
+      - ""
+      - "&cLeft-click to inspect"
+      - "&aRight-click to target"
+    # Placeholders: {date}, {details}, {reporter}
+    report_entry: " &6- &e{date} {reporter}: &f{details}"
+    reports_more: " &e... and {count} more"
+    no_reports: " &eNo reports"
+
+# Help Command
+# Set usage to "" to hide a command from the help list (e.g. if you disabled it).
+help:
+  header: "&a&lmodl.gg &av{version} &f- &eCommand List"
+  entry: "&f/{command} &7- {description}"
+  footer: "&ePage {page}/{total_pages}. Use &a/modl help {next_page}&e for the next page."
+  no_more_pages: "&7No more pages."
+  player_commands:
+    iammuted:
+      usage: "iammuted <player>"
+      description: "Tell someone you are muted"
+    standing:
+      usage: "standing"
+      description: "View your punishment standing"
+    report:
+      usage: "report <player> <reason>"
+      description: "Report a player"
+    chatreport:
+      usage: "chatreport <player>"
+      description: "Report a player's chat"
+    claimticket:
+      usage: "claimticket <id>"
+      description: "Link a ticket to your account"
+    apply:
+      usage: "apply"
+      description: "Apply for a staff position"
+    bugreport:
+      usage: "bugreport"
+      description: "Report a bug"
+    support:
+      usage: "support"
+      description: "Open support ticket"
+  staff_commands:
+    staffmenu:
+      usage: "staffmenu"
+      description: "Open staff menu"
+    inspect:
+      usage: "inspect <player> [-p]"
+      description: "Open player inspect menu (-p for print)"
+    history:
+      usage: "history <player> [-p [page]]"
+      description: "Open player history (-p for print)"
+    notes:
+      usage: "notes <player> [-p [page]]"
+      description: "Open player notes (-p for print)"
+    alts:
+      usage: "alts <player> [-p [page]]"
+      description: "Open player alts (-p for print)"
+    reports:
+      usage: "reports [player] [-p [page]]"
+      description: "Open reports menu (-p for print)"
+    punish:
+      usage: "punish <player> [type] [reason]"
+      description: "Issue a punishment"
+    ban:
+      usage: "ban <player> [duration] [reason]"
+      description: "Ban a player"
+    mute:
+      usage: "mute <player> [duration] [reason]"
+      description: "Mute a player"
+    kick:
+      usage: "kick <player> [reason]"
+      description: "Kick a player"
+    blacklist:
+      usage: "blacklist <player> [reason]"
+      description: "Blacklist a player"
+    pardon:
+      usage: "pardon <player>"
+      description: "Pardon ALL active punishments"
+    unban:
+      usage: "unban <player>"
+      description: "Pardon active or oldest unstarted ban"
+    unmute:
+      usage: "unmute <player>"
+      description: "Pardon active or oldest unstarted mute"
+    modl_reload:
+      usage: "modl reload"
+      description: "Reload configuration"
+
+# Stat Wipe
+stat_wipe:
+  kick_message: "&cPlease re-log momentarily. Your statistics are being reset pursuant to a recently expired ban."
+
+# Staff Chat
+staff_chat:
+  enabled: "&eStaff chat &aenabled&e. Messages will default to staff chat."
+  disabled: "&eStaff chat &cdisabled&e. Messages will default to local chat."
+  feature_disabled: "&cStaff chat is not enabled on this server."
+  already_normal: "&cYou are already in local chat mode."
+  format: "&b[STAFF] &e{panel-name}&f: {message}"
+  local_chat_enabled: "&eStaff chat &cdisabled&e. Messages will default to local chat."
+
+# Chat Management
+chat_management:
+  chat_toggled_on: "&7&o[{staff}: enabled chat]"
+  chat_toggled_off: "&7&o[{staff}: disabled chat]"
+  chat_disabled: "&cChat is currently disabled."
+  chat_cleared: "&7&o[{staff}: cleared chat]"
+  slow_mode_enabled: "&7&o[{staff}: slowed chat to {seconds}s]"
+  slow_mode_disabled: "&7&o[{staff}: disabled slow mode]"
+  slow_mode_wait: "&cPlease wait {seconds} seconds before chatting again."
+  invalid_seconds: "&cPlease enter a valid number of seconds."
+  usage_toggle: "&fUsage: &a/chat &ftoggle"
+  usage_clear: "&fUsage: &a/chat &fclear"
+  usage_slow: "&fUsage: &a/chat &fslow <seconds|off>"
+  help:
+    header: "&eChat Commands:"
+    staff: "&f/chat staff &7- Toggle staff chat mode"
+    toggle: "&f/chat toggle &7- Enable/disable public chat"
+    clear: "&f/chat clear [count] &7- Clear chat"
+    slow: "&f/chat slow <seconds|off> &7- Set/disable slow mode"
+
+
+# Staff Notifications
+staff_notifications:
+  join: "&7&o[{staff}: joined]"
+  verified: "&7&o[{staff}: verified]"
+  leave: "&7&o[{staff}: left]"
+  switch: "&7&o[{staff}: connected to {server}]"
+  generic: "&7&o[{message}]"
+
+# Staff 2FA
+staff_2fa:
+  not_verified: "&cYou must verify your identity before using staff commands. Use &f/verify"
+  verify_prompt: "&aClick the link to verify: &f{url}"
+  verify_success: "&aIdentity verified successfully!"
+  verify_error: "&cFailed to generate verification link. Please try again."
+  auto_verified: "&aAuto-verified via trusted IP."
+
+# Verify Command (Staff 2FA)
+verify:
+  only_players: "&cThis command can only be used by players."
+  disabled: "&cStaff 2FA is not enabled on this server."
+  already_verified: "&aYou are already verified."
+  header: ""
+  instructions: "&aClick the link below to verify your identity:"
+  click_here: "Click here to verify"
+  error: "&cFailed to generate verification link. Please try again."
+  footer: "&eThis link will expire shortly."
+
+# Maintenance
+maintenance:
+  enabled: "&7&o[{staff}: enabled maintenance]"
+  disabled: "&7&o[{staff}: disabled maintenance]"
+  already_enabled: "&cMaintenance mode is already enabled."
+  already_disabled: "&cMaintenance mode is already disabled."
+  status_enabled: "&eMaintenance mode is currently enabled."
+  status_disabled: "&eMaintenance mode is currently disabled."
+  login_denied: "&cServer is currently under maintenance. Please try again later."
+  kick_message: "&cServer is now in maintenance mode. Please try again later."
+  usage: "&fUsage: &a/maintenance&f <on|off>"
+
+# Freeze
+freeze:
+  frozen_message: "&cYou have been frozen! Do not disconnect."
+  staff_notification_freeze: "&7&o[{staff}: froze {player}]"
+  staff_notification_unfreeze: "&7&o[{staff}: unfroze {player}]"
+  unfrozen: "&aYou have been unfrozen."
+  logout_notification: "&c&l{player} logged out while frozen!"
+  frozen_chat: "&b[FROZEN] &e{player}&f: {message}"
+  command_blocked: "&cYou cannot use commands while frozen."
+  target_offline: "&c{player} is not online on this server, so they cannot be frozen."
+  unavailable: "&cCould not freeze {player}: no server is connected to enforce it."
+  unfreeze_not_propagated: "&e{player} was released, but no server was connected to clear the freeze in-game."
+
+# Intercept Chat
+intercept_chat:
+  enabled: "&aNetwork chat interception enabled"
+  disabled: "&aNetwork chat interception disabled"
+  format: "&8[G-{server}] &e{player}&f: {message}"
+
+# Intercept (staff-only interception messages)
+intercept:
+  message: "&8[Intercept] &f{player}: &7{message}"
+
+# Chat Logs
+chat_logs:
+  header: ""
+  entry: "&7[{timestamp}] &8[{server}] &f{message}"
+  empty: "&7No chat logs found for this player."
+  footer: "&ePage {page}/{total_pages} ({total} total)"
+  error: "&cFailed to fetch chat logs."
+  usage: "&fUsage: &a/chatlogs&f <player>"
+
+# Command Logs
+command_logs:
+  header: ""
+  entry: "&7[{timestamp}] &e{player}&7: &f/{command}"
+  empty: "&7No command logs found for this player."
+  footer: "&ePage {page}/{total_pages} ({total} total)"
+  error: "&cFailed to fetch command logs."
+  usage: "&fUsage: &a/commandlogs&f <player>"
+
+# Staff Mode
+staff_mode:
+  enabled: "&aStaff mode enabled"
+  disabled: "&aStaff mode disabled"
+  enabled_broadcast: "&7&o[{staff}: entered staff mode]"
+  disabled_broadcast: "&7&o[{staff}: exited staff mode]"
+
+# Vanish
+vanish:
+  enabled: "&aYou are now vanished"
+  disabled: "&aYou are no longer vanished"
+  enabled_broadcast: "&7&o[{staff}: vanished]"
+  disabled_broadcast: "&7&o[{staff}: unvanished]"
+
+# Target
+target:
+  targeting: "&eNow targeting &f{player}"
+  cleared: "&aTarget cleared."
+  usage: "&fUsage: &a/target&f <player>"
+  connecting: "&eConnecting to &f{server} &eto target &f{player}&e..."
+  cannot_target_self: "&cYou cannot target yourself."
+  not_online: "&cPlayer is not online."
+
+# Standing GUI (player-facing)
+standing_gui:
+  title: "&fYour Standing"
+  social_status:
+    title: "&eSocial Standing: {status}"
+    description:
+      Low:
+        - ""
+        - "&fYour social infraction status is low."
+        - "&fKeep up the good behavior, punishments"
+        - "&fin this category will be more lenient."
+      Medium:
+        - ""
+        - "&fYour social infraction status is medium."
+        - "&fYou have accrued several infractions,"
+        - "&fplease be more mindful as punishments"
+        - "&fin this category will be more severe."
+      Habitual:
+        - ""
+        - "&fYour social infraction status is habitual."
+        - "&fYou have accrued many infractions,"
+        - "&fplease be mindful as punishments"
+        - "&fin this category will be very severe."
+  gameplay_status:
+    title: "&eGameplay Standing: {status}"
+    description:
+      Low:
+        - ""
+        - "&fYour gameplay infraction status is low."
+        - "&fKeep up the good behavior, punishments"
+        - "&fin this category will be more lenient."
+      Medium:
+        - ""
+        - "&fYour gameplay infraction status is medium."
+        - "&fYou have accrued several infractions,"
+        - "&fplease be more mindful as punishments"
+        - "&fin this category will be more severe."
+      Habitual:
+        - ""
+        - "&fYour gameplay infraction status is habitual."
+        - "&fYou have accrued many infractions,"
+        - "&fplease be mindful as punishments"
+        - "&fin this category will be very severe."
+  status_display:
+    Low: "&aLow"
+    Medium: "&6Medium"
+    Habitual: "&cHabitual"
+  punishment_item:
+    title: "&e#{id} {date}"
+    lore:
+      - "&7{duration} {type} ({status})"
+      - ""
+      - "&f{reason}"
+
+# Punishment Action Command
+punishment_action:
+  unknown_action: "&cUnknown action: {action}"
+  enter_evidence_url: "&7Enter the evidence URL for punishment #{id}:"
+  no_url: "&cNo URL provided."
+  evidence_linked: "&aEvidence linked to punishment #{id}"
+  evidence_link_failed: "&cFailed to link evidence: {error}"
+  evidence_cancelled: "&7Evidence linking cancelled."
+  generating_upload: "&7Generating upload link..."
+  upload_failed: "&cFailed to generate upload link."
+

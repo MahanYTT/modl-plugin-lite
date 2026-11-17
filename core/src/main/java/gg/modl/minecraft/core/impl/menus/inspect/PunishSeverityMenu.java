@@ -1,0 +1,422 @@
+package gg.modl.minecraft.core.impl.menus.inspect;
+
+import gg.modl.minecraft.core.PluginServices;
+import dev.simplix.cirrus.item.CirrusItem;
+import dev.simplix.cirrus.item.CirrusItemType;
+import dev.simplix.cirrus.model.CallResult;
+import dev.simplix.cirrus.model.Click;
+import dev.simplix.cirrus.player.CirrusPlayerWrapper;
+import dev.simplix.cirrus.text.CirrusChatElement;
+import gg.modl.minecraft.api.Account;
+import gg.modl.minecraft.api.http.ModlHttpClient;
+import gg.modl.minecraft.api.http.request.PunishmentCreateRequest;
+import gg.modl.minecraft.api.http.response.PunishmentPreviewResponse;
+import gg.modl.minecraft.api.http.response.PunishmentTypesResponse;
+import gg.modl.minecraft.core.Platform;
+import gg.modl.minecraft.core.impl.menus.LinkReportsMenu;
+import gg.modl.minecraft.core.impl.menus.base.BaseInspectMenu;
+import gg.modl.minecraft.core.impl.menus.base.InspectChrome;
+import gg.modl.minecraft.core.impl.menus.util.InspectTabItems.InspectTab;
+import gg.modl.minecraft.core.impl.menus.util.MenuAsync;
+import gg.modl.minecraft.core.impl.menus.util.MenuItems;
+import gg.modl.minecraft.core.impl.menus.util.MenuSlots;
+import gg.modl.minecraft.core.locale.LocaleManager;
+import lombok.Getter;
+import lombok.Value;
+import lombok.With;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+
+public class PunishSeverityMenu extends BaseInspectMenu {
+    private static final int SEVERITY_LEVEL_LENIENT = 0, SEVERITY_LEVEL_REGULAR = 1, SEVERITY_LEVEL_AGGRAVATED = 2;
+
+    private final PunishmentTypesResponse.PunishmentTypeData punishmentType;
+    private final Consumer<CirrusPlayerWrapper> menuBackAction, rootBackAction;
+    private final PunishmentOptions options;
+    private PunishmentPreviewResponse previewData;
+    @Getter private final CompletableFuture<Void> dataFuture;
+
+    @Value
+    @With
+    public static class PunishmentOptions {
+        boolean silent;
+        boolean altBlocking;
+        boolean statWipe;
+        List<String> linkedReportIds;
+
+        static PunishmentOptions defaults() {
+            return new PunishmentOptions(false, false, false, new ArrayList<>());
+        }
+    }
+
+    public PunishSeverityMenu(Platform platform, ModlHttpClient httpClient, UUID viewerUuid, String viewerName,
+                               Account targetAccount, PunishmentTypesResponse.PunishmentTypeData punishmentType,
+                               Consumer<CirrusPlayerWrapper> rootBackAction, Consumer<CirrusPlayerWrapper> menuBackAction) {
+        this(platform, httpClient, viewerUuid, viewerName, targetAccount, punishmentType, rootBackAction, menuBackAction, PunishmentOptions.defaults());
+    }
+
+    public PunishSeverityMenu(Platform platform, ModlHttpClient httpClient, UUID viewerUuid, String viewerName,
+                               Account targetAccount, PunishmentTypesResponse.PunishmentTypeData punishmentType,
+                               Consumer<CirrusPlayerWrapper> rootBackAction, Consumer<CirrusPlayerWrapper> menuBackAction,
+                               PunishmentOptions options) {
+        super(platform, httpClient, viewerUuid, viewerName, targetAccount, menuBackAction, rootBackAction);
+        this.punishmentType = punishmentType;
+        this.menuBackAction = menuBackAction;
+        this.rootBackAction = rootBackAction;
+        this.options = options;
+
+        title("Punish: " + punishmentType.getName());
+        activeTab = InspectTab.PUNISH;
+
+        this.dataFuture = loadPreviewData().thenRun(this::buildMenu);
+    }
+
+    private CompletableFuture<Void> loadPreviewData() {
+        return httpClient.getPunishmentPreview(targetUuid, punishmentType.getOrdinal()).thenAccept(response -> {
+            if (response.isSuccess()) {
+                this.previewData = response;
+            }
+        }).exceptionally(e -> null);
+    }
+
+    private void buildMenu() {
+        buildHeader();
+
+        Boolean singleSeverity = punishmentType.getSingleSeverityPunishment();
+        Boolean permUsername = punishmentType.getPermanentUntilUsernameChange();
+        Boolean permSkin = punishmentType.getPermanentUntilSkinChange();
+
+        boolean isSingleType = (singleSeverity != null && singleSeverity) ||
+                               (permUsername != null && permUsername) ||
+                               (permSkin != null && permSkin);
+
+        if (isSingleType)
+            buildSingleSeverityLayout();
+        else
+            buildMultiSeverityLayout();
+
+        buildToggleButtons();
+    }
+
+    private void buildSingleSeverityLayout() {
+        boolean silentMode = options.isSilent();
+        PunishmentPreviewResponse.SeverityPreview preview = previewData != null ?
+                previewData.getSingleSeverity() : null;
+
+        boolean restriction = (punishmentType.getPermanentUntilUsernameChange() != null && punishmentType.getPermanentUntilUsernameChange()) ||
+                              (punishmentType.getPermanentUntilSkinChange() != null && punishmentType.getPermanentUntilSkinChange());
+
+        List<String> lore = new ArrayList<>();
+
+        if (!restriction) {
+            if (preview != null) {
+                lore.add(MenuItems.COLOR_GRAY + "Punishment: " + MenuItems.COLOR_WHITE + preview.getDurationFormatted() +
+                        (preview.isPermanent() ? " " + MenuItems.COLOR_RED + "(Permanent)" : ""));
+                lore.add(MenuItems.COLOR_GRAY + "Type: " + MenuItems.COLOR_WHITE + capitalizeFirst(preview.getPunishmentType()));
+                lore.add(MenuItems.COLOR_GRAY + "Points: " + MenuItems.COLOR_YELLOW + "+" + preview.getPoints());
+                lore.add("");
+            }
+
+            if (previewData != null && preview != null) {
+                String category = punishmentType.getCategory();
+                if ("Social".equalsIgnoreCase(category)) {
+                    lore.add(MenuItems.COLOR_GRAY + "Offender Level: " + getOffenseLevelColor(previewData.getSocialStatus()) +
+                            previewData.getSocialStatus() + MenuItems.COLOR_GRAY + " → " +
+                            getOffenseLevelColor(preview.getNewSocialStatus()) + preview.getNewSocialStatus());
+                } else {
+                    lore.add(MenuItems.COLOR_GRAY + "Offender Level: " + getOffenseLevelColor(previewData.getGameplayStatus()) +
+                            previewData.getGameplayStatus() + MenuItems.COLOR_GRAY + " → " +
+                            getOffenseLevelColor(preview.getNewGameplayStatus()) + preview.getNewGameplayStatus());
+                }
+                lore.add("");
+            }
+        }
+
+        if (punishmentType.getPermanentUntilUsernameChange() != null && punishmentType.getPermanentUntilUsernameChange()) {
+            lore.add(MenuItems.COLOR_YELLOW + "Player will be restricted until");
+            lore.add(MenuItems.COLOR_YELLOW + "they change their username");
+            lore.add("");
+        } else if (punishmentType.getPermanentUntilSkinChange() != null && punishmentType.getPermanentUntilSkinChange()) {
+            lore.add(MenuItems.COLOR_YELLOW + "Player will be restricted until");
+            lore.add(MenuItems.COLOR_YELLOW + "they change their skin");
+            lore.add("");
+        }
+
+        lore.add(MenuItems.COLOR_GREEN + "Click to issue " + (silentMode ? "silent " : "") + "punishment");
+
+        set(CirrusItem.of(
+                CirrusItemType.YELLOW_WOOL,
+                CirrusChatElement.ofLegacyText(MenuItems.COLOR_YELLOW + "Issue Punishment"),
+                MenuItems.lore(lore)
+        ).slot(31).actionHandler("issueSingle"));
+    }
+
+    private void buildMultiSeverityLayout() {
+        set(createSeverityButton("Lenient", CirrusItemType.LIME_WOOL, MenuItems.COLOR_GREEN,
+                previewData != null ? previewData.getLenient() : null, "issueLenient", MenuSlots.SEVERITY_LENIENT));
+
+        set(createSeverityButton("Regular", CirrusItemType.YELLOW_WOOL, MenuItems.COLOR_YELLOW,
+                previewData != null ? previewData.getRegular() : null, "issueRegular", MenuSlots.SEVERITY_REGULAR));
+
+        set(createSeverityButton("Aggravated", CirrusItemType.RED_WOOL, MenuItems.COLOR_RED,
+                previewData != null ? previewData.getAggravated() : null, "issueAggravated", MenuSlots.SEVERITY_AGGRAVATED));
+    }
+
+    private CirrusItem createSeverityButton(String name, CirrusItemType itemType, String color,
+                                             PunishmentPreviewResponse.SeverityPreview preview, String action, int slot) {
+        boolean silentMode = options.isSilent();
+        List<String> lore = new ArrayList<>();
+
+        lore.add(MenuItems.COLOR_GRAY + "Issue a " + name.toLowerCase() + " punishment");
+        lore.add("");
+
+        if (preview != null) {
+            lore.add(MenuItems.COLOR_GRAY + "Punishment: " + MenuItems.COLOR_WHITE + preview.getDurationFormatted() +
+                    (preview.isPermanent() ? " " + MenuItems.COLOR_RED + "(Permanent)" : ""));
+            lore.add(MenuItems.COLOR_GRAY + "Type: " + MenuItems.COLOR_WHITE + capitalizeFirst(preview.getPunishmentType()));
+            lore.add(MenuItems.COLOR_GRAY + "Points: " + MenuItems.COLOR_YELLOW + "+" + preview.getPoints());
+            lore.add("");
+
+            String category = punishmentType.getCategory();
+            if ("Social".equalsIgnoreCase(category)) {
+                lore.add(MenuItems.COLOR_GRAY + "Offender Level: " + getOffenseLevelColor(previewData.getSocialStatus()) +
+                        previewData.getSocialStatus() + MenuItems.COLOR_GRAY + " → " +
+                        getOffenseLevelColor(preview.getNewSocialStatus()) + preview.getNewSocialStatus());
+            } else {
+                lore.add(MenuItems.COLOR_GRAY + "Offender Level: " + getOffenseLevelColor(previewData.getGameplayStatus()) +
+                        previewData.getGameplayStatus() + MenuItems.COLOR_GRAY + " → " +
+                        getOffenseLevelColor(preview.getNewGameplayStatus()) + preview.getNewGameplayStatus());
+            }
+            lore.add("");
+        }
+
+        lore.add(MenuItems.COLOR_YELLOW + "Click to issue " + (silentMode ? "silent " : "") + "punishment");
+
+        return CirrusItem.of(
+                itemType,
+                CirrusChatElement.ofLegacyText(color + name),
+                MenuItems.lore(lore)
+        ).slot(slot).actionHandler(action);
+    }
+
+    private void buildToggleButtons() {
+        boolean silentMode = options.isSilent();
+        boolean altBlocking = options.isAltBlocking();
+        boolean statWipe = options.isStatWipe();
+        List<String> linkedReportIds = options.getLinkedReportIds();
+        String linkTitle = MenuItems.COLOR_GOLD + "Link Reports";
+        if (!linkedReportIds.isEmpty())
+            linkTitle += MenuItems.COLOR_GREEN + " (" + linkedReportIds.size() + ")";
+        List<String> linkLore = new ArrayList<>();
+        linkLore.add(MenuItems.COLOR_GRAY + "Select reports to link with this punishment");
+        linkLore.add("");
+        if (linkedReportIds.isEmpty()) {
+            linkLore.add(MenuItems.COLOR_YELLOW + "Click to select reports");
+        } else {
+            linkLore.add(MenuItems.COLOR_GREEN + "Linked reports:");
+            for (String reportId : linkedReportIds) {
+                linkLore.add(MenuItems.COLOR_GRAY + "  - " + MenuItems.COLOR_WHITE + reportId);
+            }
+            linkLore.add("");
+            linkLore.add(MenuItems.COLOR_YELLOW + "Click to modify selection");
+        }
+        set(CirrusItem.of(
+                CirrusItemType.BOOK,
+                CirrusChatElement.ofLegacyText(linkTitle),
+                MenuItems.lore(linkLore)
+        ).slot(MenuSlots.SEVERITY_LINK_REPORTS).actionHandler("linkReports"));
+
+        set(CirrusItem.of(
+                silentMode ? CirrusItemType.LIME_DYE : CirrusItemType.GRAY_DYE,
+                CirrusChatElement.ofLegacyText(MenuItems.COLOR_GOLD + "Silent Mode: " + (silentMode ? MenuItems.COLOR_GREEN + "Enabled" : MenuItems.COLOR_RED +
+                                                                                                                                     "Disabled")),
+                MenuItems.lore(
+                        MenuItems.COLOR_GRAY + "Toggle silent mode for this punishment",
+                        "",
+                        silentMode ? MenuItems.COLOR_GREEN + "Punishment will be silent" : MenuItems.COLOR_GRAY + "Punishment will be public"
+                )
+        ).slot(MenuSlots.SEVERITY_SILENT).actionHandler("toggleSilent"));
+
+        if (punishmentType.getCanBeAltBlocking() != null && punishmentType.getCanBeAltBlocking()) {
+            set(CirrusItem.of(
+                    altBlocking ? CirrusItemType.TORCH : CirrusItemType.REDSTONE_TORCH,
+                    CirrusChatElement.ofLegacyText(MenuItems.COLOR_GOLD + "Alt-Blocking: " + (altBlocking ? MenuItems.COLOR_GREEN + "Enabled" :
+                                                                                         MenuItems.COLOR_RED + "Disabled")),
+                    MenuItems.lore(
+                            MenuItems.COLOR_GRAY + "Block alt accounts from joining",
+                            "",
+                            altBlocking ? MenuItems.COLOR_GREEN + "Alt accounts will be blocked" : MenuItems.COLOR_GRAY + "Alt accounts can still join"
+                    )
+            ).slot(MenuSlots.SEVERITY_ALT_BLOCK).actionHandler("toggleAltBlock"));
+        }
+
+        if (punishmentType.getCanBeStatWiping() != null && punishmentType.getCanBeStatWiping()) {
+            set(CirrusItem.of(
+                    statWipe ? CirrusItemType.EXPERIENCE_BOTTLE : CirrusItemType.GLASS_BOTTLE,
+                    CirrusChatElement.ofLegacyText(MenuItems.COLOR_GOLD + "Stat-Wipe: " + (statWipe ? MenuItems.COLOR_GREEN + "Enabled" : MenuItems.COLOR_RED +
+                                                                                                                                     "Disabled")),
+                    MenuItems.lore(
+                            MenuItems.COLOR_GRAY + "Wipe player stats after punishment",
+                            "",
+                            statWipe ? MenuItems.COLOR_GREEN + "Stats will be wiped" : MenuItems.COLOR_GRAY + "Stats will be preserved"
+                    )
+            ).slot(MenuSlots.SEVERITY_STAT_WIPE).actionHandler("toggleStatWipe"));
+        }
+    }
+
+    private String getOffenseLevelColor(String offenseLevel) {
+        if (offenseLevel == null) return MenuItems.COLOR_GRAY;
+        String lower = offenseLevel.toLowerCase();
+        if ("low".equals(lower)) return MenuItems.COLOR_GREEN;
+        if ("medium".equals(lower)) return MenuItems.COLOR_YELLOW;
+        if ("habitual".equals(lower)) return MenuItems.COLOR_RED;
+        return MenuItems.COLOR_GRAY;
+    }
+
+    private String capitalizeFirst(String str) {
+        if (str == null || str.isEmpty()) return str;
+        return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
+    }
+
+    @Override
+    protected void registerActionHandlers() {
+        super.registerActionHandlers();
+
+        registerActionHandler("issueSingle", click -> {
+            issuePunishment(click, SEVERITY_LEVEL_REGULAR);
+            return CallResult.DENY_GRABBING;
+        });
+        registerActionHandler("issueLenient", click -> {
+            issuePunishment(click, SEVERITY_LEVEL_LENIENT);
+            return CallResult.DENY_GRABBING;
+        });
+        registerActionHandler("issueRegular", click -> {
+            issuePunishment(click, SEVERITY_LEVEL_REGULAR);
+            return CallResult.DENY_GRABBING;
+        });
+        registerActionHandler("issueAggravated", click -> {
+            issuePunishment(click, SEVERITY_LEVEL_AGGRAVATED);
+            return CallResult.DENY_GRABBING;
+        });
+
+        registerActionHandler("toggleSilent", this::handleToggleSilent);
+        registerActionHandler("toggleAltBlock", this::handleToggleAltBlock);
+        registerActionHandler("toggleStatWipe", this::handleToggleStatWipe);
+
+        registerActionHandler("linkReports", click -> {
+            handleLinkReports(click);
+            return CallResult.DENY_GRABBING;
+        });
+    }
+
+    private void issuePunishment(Click click, int severityLevel) {
+        click.clickedMenu().close();
+
+        boolean silentMode = options.isSilent();
+        boolean altBlocking = options.isAltBlocking();
+        boolean statWipe = options.isStatWipe();
+        List<String> linkedReportIds = options.getLinkedReportIds();
+
+        PluginServices.chatInput().requestInput(viewerUuid, "Enter punishment reason for " + targetName + ":",
+                reason -> {
+                    String severityStr = severityLevel == SEVERITY_LEVEL_LENIENT ? "lenient"
+                            : severityLevel == SEVERITY_LEVEL_REGULAR ? "regular" : "aggravated";
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("altBlocking", altBlocking);
+                    data.put("wipeAfterExpiry", statWipe);
+                    data.put("silent", silentMode);
+                    data.put("issuedServer", platform.getPlayerServer(viewerUuid));
+
+                    String issuerId = PluginServices.cache() != null ? PluginServices.cache().getStaffId(viewerUuid) : null;
+                    PunishmentCreateRequest request = new PunishmentCreateRequest(
+                            targetUuid.toString(),
+                            viewerName,
+                            issuerId,
+                            reason,
+                            severityStr,
+                            null,
+                            punishmentType.getOrdinal(),
+                            null,
+                            data,
+                            null,
+                            linkedReportIds.isEmpty() ? null : linkedReportIds
+                    );
+
+                    httpClient.createPunishmentWithResponse(request).thenAccept(response -> {
+                        if (response.isSuccess()) {
+                            LocaleManager localeManager = PluginServices.locale();
+
+                            String successMessage = localeManager.punishment()
+                                .type(punishmentType.getName())
+                                .target(targetName)
+                                .punishmentId(response.getPunishmentId())
+                                .get("general.punishment_issued");
+                            sendMessage(successMessage);
+
+                            if (response.getPunishmentId() != null) {
+                                platform.runOnMainThread(() -> PluginServices.punishmentActions().sendPunishmentActions(viewerUuid, response.getPunishmentId()));
+                            }
+
+                            if (!linkedReportIds.isEmpty()) {
+                                for (String reportId : linkedReportIds) {
+                                    httpClient.resolveReport(reportId, viewerName,
+                                            "Report accepted - punishment issued", response.getPunishmentId())
+                                            .exceptionally(ex -> null);
+                                }
+                                sendMessage(MenuItems.COLOR_GREEN + "Resolved " + linkedReportIds.size() + " linked report(s).");
+                            }
+                        } else {
+                            sendMessage(MenuItems.COLOR_RED + "Failed to issue punishment: " + response.getMessage());
+                        }
+                    }).exceptionally(e -> {
+                        sendMessage(MenuItems.COLOR_RED + "Failed to issue punishment: " + e.getMessage());
+                        return null;
+                    });
+                },
+                () -> {
+                    sendMessage(MenuItems.COLOR_GRAY + "Punishment cancelled.");
+                    display(click.player());
+                }
+        );
+    }
+
+    private void handleToggleSilent(Click click) {
+        rebuildWith(click.player(), options.withSilent(!options.isSilent()));
+    }
+
+    private void handleToggleAltBlock(Click click) {
+        rebuildWith(click.player(), options.withAltBlocking(!options.isAltBlocking()));
+    }
+
+    private void handleToggleStatWipe(Click click) {
+        rebuildWith(click.player(), options.withStatWipe(!options.isStatWipe()));
+    }
+
+    private void rebuildWith(CirrusPlayerWrapper player, PunishmentOptions options) {
+        PunishSeverityMenu m = new PunishSeverityMenu(platform, httpClient, viewerUuid, viewerName, targetAccount, punishmentType,
+                rootBackAction, menuBackAction, options);
+        MenuAsync.displayWhenLoaded(platform, m.getDataFuture(), player, m::display);
+    }
+
+    private void handleLinkReports(Click click) {
+        Set<String> preSelected = new HashSet<>(options.getLinkedReportIds());
+        Consumer<Set<String>> onComplete = selectedIds ->
+                rebuildWith(click.player(), options.withLinkedReportIds(new ArrayList<>(selectedIds)));
+
+        Consumer<CirrusPlayerWrapper> backToSeverity = player ->
+                rebuildWith(player, options);
+
+        LinkReportsMenu linkMenu = new LinkReportsMenu(platform, httpClient, viewerUuid, viewerName,
+                new InspectChrome(platform, httpClient, viewerUuid, viewerName, targetAccount, rootBackAction, null),
+                targetAccount, preSelected, backToSeverity, onComplete);
+        MenuAsync.displayWhenLoaded(platform, linkMenu.getDataFuture(), click.player(), linkMenu::display);
+    }
+}

@@ -1,0 +1,32 @@
+# Bridge configuration for modl.gg Spigot plugin.
+
+# Proxy host (IP or hostname of the proxy server)
+# Set this to the proxy's address. Leave empty in standalone mode.
+proxy-host: "127.0.0.1"
+# Proxy bridge port
+proxy-port: 25590
+
+# Commands executed on stat wipe ({player} is replaced with the player name)
+stat-wipe-commands:
+  - "clearstats {player}"
+
+# Display name for the anticheat in reports
+anticheat-name: "Anti-cheat"
+
+# Automatically create reports when a supported anticheat flags a player.
+# Set to false to stop modl hooking into GrimAC / Vulcan / Polar entirely; no auto-reports
+# will be created and no violations will be tracked. Manual reports are unaffected.
+anticheat-hook-enabled: true
+
+# Server name used in bridge communication
+server-name: "Server 1"
+
+# Enable verbose bridge/auto-reporter debug logging
+debug: false
+
+# Cooldown in seconds between auto-reports per player
+report-cooldown: 60
+
+# Violation threshold before auto-reporting (per check name, or "default")
+report-violation-threshold:
+  default: 10

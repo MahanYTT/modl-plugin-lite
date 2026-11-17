@@ -1,0 +1,211 @@
+package gg.modl.minecraft.core.cache;
+
+import gg.modl.minecraft.api.http.response.PunishmentTypesResponse;
+import gg.modl.minecraft.api.http.response.SyncResponse;
+import gg.modl.minecraft.core.config.PunishGuiConfig;
+import gg.modl.minecraft.core.config.ReportGuiConfig;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+@RequiredArgsConstructor
+public class Cache {
+    private static final long TEXTURE_TTL_MS = 10 * 60 * 1000;
+    private static final int TEXTURE_CACHE_MAX_SIZE = 500;
+
+    @Getter private final CachedProfileRegistry registry;
+    private final Map<UUID, StaffPermissions> staffPermissionsCache = new ConcurrentHashMap<>();
+    private final Object skinTextureLock = new Object();
+    private final Map<UUID, CachedTexture> skinTextureCache =
+            new LinkedHashMap<UUID, CachedTexture>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<UUID, CachedTexture> eldest) {
+                    return size() > TEXTURE_CACHE_MAX_SIZE;
+                }
+            };
+    @Getter private volatile PunishmentTypesResponse cachedPunishmentTypes;
+    @Getter private volatile PunishGuiConfig cachedPunishGuiConfig;
+    @Getter private volatile ReportGuiConfig cachedReportGuiConfig;
+    private volatile Map<Integer, String> punishmentTypeItems = Collections.emptyMap();
+
+    @Getter @Setter private boolean queryMojang;
+
+    public Map<Integer, String> getPunishmentTypeItems() {
+        return punishmentTypeItems;
+    }
+
+    public void setPunishmentTypeItems(Map<Integer, String> items) {
+        this.punishmentTypeItems = items == null
+                ? Collections.emptyMap()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(items));
+    }
+
+    public CachedProfile getPlayerProfile(UUID uuid) {
+        return registry.getProfile(uuid);
+    }
+
+    public void setOffline(UUID playerUuid) {
+        synchronized (skinTextureLock) {
+            skinTextureCache.remove(playerUuid);
+        }
+    }
+
+    public void cacheSkinTexture(UUID playerUuid, String textureValue) {
+        if (textureValue == null) return;
+        synchronized (skinTextureLock) {
+            skinTextureCache.put(playerUuid, new CachedTexture(textureValue, System.currentTimeMillis()));
+        }
+    }
+
+    public String getSkinTexture(UUID playerUuid) {
+        synchronized (skinTextureLock) {
+            CachedTexture entry = skinTextureCache.get(playerUuid);
+            if (entry == null) return null;
+            if (entry.isExpired(System.currentTimeMillis())) {
+                skinTextureCache.remove(playerUuid);
+                return null;
+            }
+            return entry.value;
+        }
+    }
+
+    @AllArgsConstructor
+    private static class CachedTexture {
+        final String value;
+        final long cachedAt;
+
+        private boolean isExpired(long now) {
+            return now - cachedAt > TEXTURE_TTL_MS;
+        }
+    }
+
+    private StaffPermissions profileStaffPermissions(UUID playerUuid) {
+        CachedProfile profile = registry.getProfile(playerUuid);
+        if (profile == null) return null;
+        SyncResponse.ActiveStaffMember staff = profile.getStaffMember();
+        if (staff == null) return null;
+        return new StaffPermissions(staff.getStaffUsername(), staff.getStaffId(), staff.getStaffRole(), staff.getPermissions());
+    }
+
+    private StaffPermissions cachedStaffPermissions(UUID playerUuid) {
+        return staffPermissionsCache.get(playerUuid);
+    }
+
+    public String getStaffDisplayName(UUID playerUuid) {
+        StaffPermissions profileView = profileStaffPermissions(playerUuid);
+        if (profileView != null && !profileView.getStaffUsername().isEmpty()) return profileView.getStaffUsername();
+
+        StaffPermissions cachedView = cachedStaffPermissions(playerUuid);
+        if (cachedView != null && cachedView.getStaffUsername() != null && !cachedView.getStaffUsername().isEmpty()) return cachedView.getStaffUsername();
+        return null;
+    }
+
+    public String getStaffId(UUID playerUuid) {
+        StaffPermissions profileView = profileStaffPermissions(playerUuid);
+        if (profileView != null) return profileView.getStaffId();
+
+        StaffPermissions cachedView = cachedStaffPermissions(playerUuid);
+        if (cachedView != null && cachedView.getStaffId() != null) return cachedView.getStaffId();
+        return null;
+    }
+
+    public String getDisplayName(UUID playerUuid, String fallback) {
+        String panelName = getStaffDisplayName(playerUuid);
+        return panelName != null ? panelName : fallback;
+    }
+
+    public boolean hasPermission(UUID playerUuid, String permission) {
+        StaffPermissions cachedView = cachedStaffPermissions(playerUuid);
+        if (cachedView != null) return checkRoleAndPermissions(cachedView.getStaffRole(), cachedView.getPermissions(), permission);
+
+        StaffPermissions profileView = profileStaffPermissions(playerUuid);
+        if (profileView != null) return checkRoleAndPermissions(profileView.getStaffRole(), profileView.getPermissions(), permission);
+
+        return false;
+    }
+
+    private boolean checkRoleAndPermissions(String role, List<String> permissions, String requested) {
+        if ("Super Admin".equalsIgnoreCase(role)) return true;
+        for (String perm : permissions) {
+            if (perm.equals(requested)) return true;
+            if (requested.length() > perm.length()
+                    && requested.charAt(perm.length()) == '.'
+                    && requested.startsWith(perm)) return true;
+        }
+        return false;
+    }
+
+    public void cacheStaffPermissions(UUID playerUuid, String staffUsername, String staffId, String staffRole, List<String> permissions) {
+        List<String> cachedPermissions = Collections.unmodifiableList(new ArrayList<>(permissions));
+        staffPermissionsCache.put(playerUuid, new StaffPermissions(staffUsername, staffId, staffRole, cachedPermissions));
+    }
+
+    public void removeStaffPermissions(UUID playerUuid) {
+        staffPermissionsCache.remove(playerUuid);
+    }
+
+    public void clearStaffPermissions() {
+        staffPermissionsCache.clear();
+    }
+
+    public boolean isStaffMemberByPermissions(UUID playerUuid) {
+        return staffPermissionsCache.containsKey(playerUuid);
+    }
+
+    public String getStaffRole(UUID playerUuid) {
+        StaffPermissions cachedView = cachedStaffPermissions(playerUuid);
+        return cachedView != null ? cachedView.getStaffRole() : null;
+    }
+
+    public void clear() {
+        registry.clear();
+        staffPermissionsCache.clear();
+        synchronized (skinTextureLock) {
+            skinTextureCache.clear();
+        }
+        cachedPunishmentTypes = null;
+        cachedPunishGuiConfig = null;
+        cachedReportGuiConfig = null;
+        punishmentTypeItems = null;
+    }
+
+    @Getter @RequiredArgsConstructor
+    public static class StaffPermissions {
+        private final String staffUsername, staffId, staffRole;
+        private final List<String> permissions;
+    }
+
+    public void cachePunishmentTypes(PunishmentTypesResponse response) {
+        this.cachedPunishmentTypes = response;
+    }
+
+    public void clearPunishmentTypes() {
+        this.cachedPunishmentTypes = null;
+    }
+
+    public void cachePunishGuiConfig(PunishGuiConfig config) {
+        this.cachedPunishGuiConfig = config;
+    }
+
+    public void clearPunishGuiConfig() {
+        this.cachedPunishGuiConfig = null;
+    }
+
+    public void cacheReportGuiConfig(ReportGuiConfig config) {
+        this.cachedReportGuiConfig = config;
+    }
+
+    public void clearReportGuiConfig() {
+        this.cachedReportGuiConfig = null;
+    }
+
+}

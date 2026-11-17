@@ -1,0 +1,29 @@
+name: ${plugin.name}
+main: ${project.groupId}.minecraft.spigot.SpigotPlugin
+version: ${plugin.version}
+author: '${plugin.author}'
+description: ${plugin.description}
+website: ${plugin.url}
+api-version: 1.13
+folia-supported: true
+softdepend:
+  - ProtocolLib
+  - ProtocolSupport
+  - ViaVersion
+  - ViaBackwards
+  - ViaRewind
+  - Geyser-Spigot
+  - GrimAC
+  - Polar
+  - Vulcan
+commands:
+  proxycmd:
+    description: Forward a command to the proxy plugin via TCP query
+    usage: /proxycmd <command>
+  modlbridge:
+    description: Manage the modl bridge on this server
+    usage: /modlbridge reload
+permissions:
+  modl.bridge.reload:
+    description: Reload the modl bridge configuration
+    default: op

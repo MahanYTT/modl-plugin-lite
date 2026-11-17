@@ -1,0 +1,22 @@
+# modl.gg Boot Configuration
+# Edit this file and restart the server.
+# To register a new server, visit https://modl.gg/register
+#
+# mode: standalone | bridge-only | proxy
+mode: standalone
+
+# Your API key from the modl.gg panel
+api-key: "your-api-key-here"
+
+# Use the testing API (api.modl.top) instead of production
+testing-api: false
+
+# Proxy type (bridge-only mode): velocity | bungeecord
+# proxy-type: velocity
+
+# Proxy connection target (bridge-only mode)
+# proxy-host: "127.0.0.1"
+# proxy-port: 25590
+
+# Bridge listen port (proxy mode only - backends connect to this port)
+# bridge-port: 25590

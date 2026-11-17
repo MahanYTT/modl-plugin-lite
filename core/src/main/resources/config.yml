@@ -1,0 +1,217 @@
+# modl.gg Minecraft Plugin Configuration
+
+# Server Configuration
+server:
+  # Name of this server (used for identification in the panel)
+  name: "Server 1"
+  # Allow querying Mojang API for unknown players (default: false)
+  query_mojang: false
+
+# Language for in-game messages. Available: en_US, de_DE, es_ES, fr_FR, hi_IN, it_IT, ja_JP, nl_NL, pt_BR, ru_RU, zh_CN
+locale: "en_US"
+
+# Staff Chat Configuration
+# Staff members can communicate privately in-game.
+staff_chat:
+  # Enable/disable staff chat feature
+  enabled: true
+  # Prefix to trigger staff chat (e.g., "!" means "!hello" sends to staff chat)
+  prefix: "!"
+  # Format for staff chat messages
+  # Placeholders: {player}, {message}
+  format: "&b[Staff] &f{player}: &7{message}"
+
+# Staff 2FA Configuration
+# Staff members must verify identity via a panel link before using staff features.
+# IP Sessions last 7 days (managed by the backend).
+staff_2fa:
+  # Enable/disable staff 2FA
+  enabled: false
+
+# Chat Management Configuration
+# Staff can disable chat, clear chat, or apply slow mode.
+chat_management:
+  # Number of blank lines to send when clearing chat
+  clear_lines: 100
+
+# Sync Configuration
+sync:
+  # DEPRECATED: sync is now websocket-push driven; this value no longer controls a periodic poll.
+  # It is only used as the interval (in seconds, minimum 30) for the slow fallback fetch that runs
+  # while the websocket is unavailable, so a kill-switched or older backend still stays in sync.
+  polling_rate: 60
+
+# Realtime Configuration
+# The WebSocket is the live channel: the backend pushes punishments, notifications, and other
+# deltas, and each (re)connect performs one full baseline fetch. Disable only to fall back to the
+# slow HTTP fetch above (kill-switch).
+realtime:
+  enabled: true
+
+# Proxy Configuration (Velocity / BungeeCord only, ignored on game servers)
+proxy:
+  # Controls modl's packet interception on the proxy, which powers proxy-side menus and
+  # secure-chat enforcement. Moderation (punishments, chat, reports) never depends on it.
+  #   auto     - on, unless a plugin that rewrites packets on the wire is detected (e.g. LimboAPI).
+  #              LimboAPI and packet interception are incompatible by design: LimboAPI writes
+  #              pre-encoded packets past the encoder, which leaves players stuck on "Encrypting...".
+  #   enabled  - always on. Only safe alongside LimboAPI if LimboAPI has both
+  #              'compatibility-mode: true' and 'save-uncompressed-packets: true'.
+  #   disabled - always off.
+  packet_interception: "auto"
+
+# Update Checker Configuration
+update_checker:
+  # Enable periodic plugin update checks against GitHub releases
+  enabled: true
+  # How often to check for updates (in minutes)
+  # Default: 60 minutes. Minimum: 1 minute
+  interval_minutes: 60
+
+# Public IP Enrichment
+# Resolves geolocation/ISP/proxy metadata for player IPs via an HTTPS provider.
+# Used by the panel to populate pendingIpLookups. Only https:// URLs are accepted.
+ip-lookup:
+  enabled: true
+  url: "https://ipwho.is/{ip}"
+
+# Commands that muted players cannot use
+# List command names without the leading slash
+muted_commands:
+  - "msg"
+  - "tell"
+  - "r"
+  - "reply"
+  - "w"
+  - "whisper"
+  - "me"
+
+# Command Aliases
+# Customize which commands are registered by the plugin.
+# Use pipe-separated values for multiple aliases (e.g., "punish|p|pun")
+# The first alias in the list is considered the primary command name.
+# To disable a command, just leave the value blank (ie: punish: "")
+commands:
+  modl: "modl"
+  punish: "punish|p"
+  ban: "ban"
+  mute: "mute"
+  kick: "kick"
+  blacklist: "blacklist"
+  pardon: "pardon"
+  unban: "unban"
+  unmute: "unmute"
+  warn: "warn"
+  inspect: "inspect|ins|check|lookup|i"
+  staffmenu: "staffmenu"
+  history: "history|hist"
+  alts: "alts|alt"
+  notes: "notes"
+  reports: "reports"
+  iammuted: "iammuted"
+  report: "report"
+  chatreport: "chatreport|cr"
+  hackreport: "hackreport|hr"
+  apply: "apply"
+  bugreport: "bugreport"
+  support: "support"
+  tclaim: "tclaim|claimticket"
+  standing: "standing"
+  punishment_action: "modl:punishment-action"
+  staffchat: "staffchat|sc"
+  localchat: "localchat|lc"
+  chat: "chat"
+  stafflist: "stafflist"
+  freeze: "freeze"
+  staffmode: "staffmode|modmode|sm|mm"
+  vanish: "vanish|v"
+  target: "target"
+  verify: "verify"
+  interceptnetworkchat: "interceptnetworkchat|inc"
+  chatlogs: "chatlogs"
+  commandlogs: "commandlogs"
+
+# Migration Configuration
+migration:
+  litebans:
+    database:
+      # Database connection details for LiteBans migration
+      # The plugin will try to auto-detect from LiteBans config first
+      # If LiteBans is not found, these settings will be used as fallback
+      host: "litebans-database-host"
+      port: 3306
+      database: "litebans_database"
+      username: "litebans_user"
+      password: "change-me"
+      # Supported types: mysql, mariadb, postgresql, h2
+      type: "mysql"
+      # Table prefix for LiteBans tables (default: "litebans_")
+      # Plugin will try to read from LiteBans config first
+      table_prefix: "litebans_"
+
+# Staff Mode Settings
+# These control bridge-related staff mode behavior.
+staff_mode:
+  # Automatically vanish when entering staff mode
+  vanish_on_enable: true
+  # Restrict staff tools (punish, inspect, etc.) to only work in staff mode
+  restrict_to_staff_mode: false
+
+# Locale Configuration
+# These values are used by the locale system for URLs, formatting, etc.
+locale_config:
+  # Default reason when none is specified
+  default_reason: "No reason specified"
+
+  # Date format for displaying dates
+  date_format: "MM/dd/yyyy HH:mm"
+
+  # Timezone for displaying dates (e.g. "America/New_York", "UTC", "Europe/London")
+  # Uses server timezone if not set
+  timezone: ""
+
+  # Duration format templates
+  duration_format:
+    days: "{days}d"
+    hours: "{hours}h"
+    minutes: "{minutes}m"
+    seconds: "{seconds}s"
+    permanent: "permanent"
+
+# Standing GUI Configuration
+# Player-facing menu for viewing their own social/gameplay standing and punishments.
+# Players can open this with /standing.
+#
+# Text content (titles, descriptions, status display names, punishment lore)
+# is configured in the locale files (e.g., locale/en_US.yml under "standing_gui").
+standing_gui:
+  # Social status item type (slot 11 in the GUI)
+  social_status:
+    item: "minecraft:creeper_head"
+  # Gameplay status item type (slot 15 in the GUI)
+  gameplay_status:
+    item: "minecraft:tnt"
+
+# What item should be used to display punishment type in history/recent punishment GUI
+punishment_type_items_by_ordinal:
+  0: "minecraft:leather_boots"
+  1: "minecraft:orange_wool"
+  2: "minecraft:red_wool"
+  3: "minecraft:barrier"
+  4: "minecraft:player_head"
+  5: "minecraft:bedrock"
+  6: "minecraft:feather"
+  7: "minecraft:pufferfish"
+  8: "minecraft:creeper_head"
+  9: "minecraft:ink_sac"
+  10: "minecraft:name_tag"
+  11: "minecraft:armor_stand"
+  12: "minecraft:lava_bucket"
+  13: "minecraft:spider_eye"
+  14: "minecraft:diamond_sword"
+  15: "minecraft:gold_ingot"
+  16: "minecraft:experience_bottle"
+  17: "minecraft:barrier"
+
+# Enable this if developer tells you - will spam console logs
+debug: false

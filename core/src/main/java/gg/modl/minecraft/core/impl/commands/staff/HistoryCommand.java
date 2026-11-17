@@ -1,0 +1,143 @@
+package gg.modl.minecraft.core.impl.commands.staff;
+
+import gg.modl.minecraft.api.Account;
+import gg.modl.minecraft.api.Punishment;
+import gg.modl.minecraft.core.HttpClientHolder;
+import gg.modl.minecraft.core.Platform;
+import gg.modl.minecraft.core.cache.Cache;
+import gg.modl.minecraft.core.command.StaffOnly;
+import gg.modl.minecraft.core.impl.menus.inspect.HistoryMenu;
+import gg.modl.minecraft.core.impl.menus.util.MenuAsync;
+import gg.modl.minecraft.core.impl.menus.util.MenuItems;
+import gg.modl.minecraft.core.locale.LocaleManager;
+import gg.modl.minecraft.core.util.CommandUtil;
+import gg.modl.minecraft.core.util.Pagination;
+import gg.modl.minecraft.core.punishment.PunishmentTypeCacheManager;
+import lombok.RequiredArgsConstructor;
+import revxrsal.commands.annotation.Command;
+import revxrsal.commands.annotation.Description;
+import revxrsal.commands.annotation.Optional;
+import revxrsal.commands.annotation.Named;
+import revxrsal.commands.command.CommandActor;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import static gg.modl.minecraft.core.util.Java8Collections.mapOf;
+
+@RequiredArgsConstructor
+public class HistoryCommand {
+    private final HttpClientHolder httpClientHolder;
+    private final Platform platform;
+    private final Cache cache;
+    private final LocaleManager localeManager;
+    private final PunishmentTypeCacheManager punishmentTypeCache;
+
+    @Command("history")
+    @Description("Open the punishment history menu for a player, or use -p to print to chat")
+    @StaffOnly
+    public void history(CommandActor actor, @Named("player") String playerQuery, @Optional String flags) {
+        if (flags == null) flags = "";
+        int page = Pagination.parsePrintFlags(flags);
+        boolean printMode = page > 0;
+
+        if (CommandUtil.rendersAsText(actor, platform, printMode)) {
+            printHistory(actor, playerQuery, Math.max(1, page));
+            return;
+        }
+
+        UUID senderUuid = actor.uniqueId();
+        ProfileMenuOpener.openProfileMenu(actor, httpClientHolder.getClient(), platform, cache, localeManager, playerQuery,
+                (profileResponse, senderName, viewer) -> {
+                    HistoryMenu menu = new HistoryMenu(
+                        platform, httpClientHolder.getClient(), senderUuid, senderName,
+                        profileResponse.getProfile(), null);
+                    MenuAsync.displayWhenLoaded(platform, menu.getDataFuture(), viewer, menu::display);
+                });
+    }
+
+    private void printHistory(CommandActor actor, String playerQuery, int page) {
+        actor.reply(localeManager.getMessage("player_lookup.looking_up", mapOf("player", playerQuery)));
+
+        StaffProfileLookup.lookupPlayerProfile(httpClientHolder.getClient(), platform, playerQuery).thenAccept(profileResponse -> {
+            if (profileResponse.getStatus() == 200) {
+                Account profile = profileResponse.getProfile();
+                List<Account.Username> usernames = profile.getUsernames();
+                String playerName = !usernames.isEmpty() ? usernames.get(usernames.size() - 1).getUsername() : playerQuery;
+                displayHistory(actor, playerName, profile, page);
+            } else actor.reply(localeManager.getMessage("general.player_not_found"));
+        }).exceptionally(throwable -> {
+            CommandUtil.handleException(actor, throwable, localeManager);
+            return null;
+        });
+    }
+
+    private static final int ENTRIES_PER_PAGE = 8;
+
+    private void displayHistory(CommandActor actor, String playerName, Account profile, int page) {
+        List<Punishment> punishments = profile.getPunishments();
+        actor.reply(localeManager.getMessage("print.history.header", mapOf("player", playerName)));
+
+        if (punishments.isEmpty()) actor.reply(localeManager.getMessage("print.history.empty"));
+        else PaginatedChatPrinter.printPageWithTotal(actor, localeManager, punishments, ENTRIES_PER_PAGE, page,
+                "print.history.total", (index, ordinal) -> replyHistoryEntry(actor, punishments.get(index), ordinal));
+
+        actor.reply(localeManager.getMessage("print.history.footer"));
+    }
+
+    private void replyHistoryEntry(CommandActor actor, Punishment punishment, int ordinal) {
+        String type = punishmentTypeCache.getNameByOrdinal(punishment.getTypeOrdinal());
+        String reason = punishment.getReason() != null ? punishment.getReason() : "";
+
+        boolean isKick = punishment.isKickType();
+
+        Long effectiveDuration = punishment.getEffectiveDuration();
+        String duration;
+        if (isKick) duration = "";
+        else if (effectiveDuration == null || effectiveDuration <= 0) duration = "permanent";
+        else duration = MenuItems.formatDuration(effectiveDuration);
+
+        Map<String, String> vars = new HashMap<>();
+        vars.put("ordinal", String.valueOf(ordinal));
+        vars.put("type", type);
+        vars.put("id", punishment.getId());
+        vars.put("issuer", punishment.getIssuerName());
+        vars.put("date", localeManager.formatDate(punishment.getIssued()));
+        vars.put("reason", reason);
+        vars.put("duration", duration);
+
+        if (isKick) {
+            actor.reply(localeManager.getMessage("print.history.entry_kick", vars));
+            return;
+        }
+
+        Date pardonDate = punishment.getPardonDate();
+        if (pardonDate != null) {
+            long pardonedAgo = System.currentTimeMillis() - pardonDate.getTime();
+            vars.put("pardoned_ago", MenuItems.formatDuration(pardonedAgo > 0 ? pardonedAgo : 0));
+            actor.reply(localeManager.getMessage("print.history.entry_pardoned", vars));
+        } else if (punishment.getStarted() == null)
+            actor.reply(localeManager.getMessage("print.history.entry_unstarted", vars));
+        else if (punishment.isActive()) {
+            if (effectiveDuration == null || effectiveDuration <= 0) actor.reply(localeManager.getMessage("print.history.entry_permanent", vars));
+            else {
+                Date effectiveExpiry = punishment.getEffectiveExpiry();
+                long remaining = effectiveExpiry != null
+                        ? effectiveExpiry.getTime() - System.currentTimeMillis() : 0;
+                vars.put("expiry", MenuItems.formatDuration(remaining > 0 ? remaining : 0));
+                actor.reply(localeManager.getMessage("print.history.entry_active", vars));
+            }
+        } else {
+            Date effectiveExpiry = punishment.getEffectiveExpiry();
+            if (effectiveExpiry != null) {
+                long expiredAgo = System.currentTimeMillis() - effectiveExpiry.getTime();
+                vars.put("expired_ago", MenuItems.formatDuration(expiredAgo > 0 ? expiredAgo : 0));
+            } else vars.put("expired_ago", "N/A");
+            actor.reply(localeManager.getMessage("print.history.entry_expired", vars));
+        }
+    }
+
+}
+
